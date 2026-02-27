@@ -1,0 +1,15 @@
+{
+  "simulate": true,
+  "primaryPrinterIp": "10.10.10.120",
+  "fallbackPrinterIp": "10.10.10.130",
+  "printerPort": 9100,
+  "data": {
+    "line1": "21304050",
+    "ibx": "FR2",
+    "floor": "0G",
+    "cabinet": "0101",
+    "number": "123456",
+    "portA": "11",
+    "portB": "12"
+  }
+}

@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+  i7100-print-prototype:
+    container_name: i7100-print-prototype
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 5000
+      CORS_ORIGIN: "*"
+      PRIMARY_PRINTER_IP: 10.10.10.120
+      FALLBACK_PRINTER_IP: 10.10.10.130
+      PRINTER_PORT: 9100
