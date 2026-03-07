@@ -51,7 +51,10 @@
       portBValues: ['Port B', 'B Port']
     },
     behavior: {
-      checkIntervalMs: 2000
+      checkIntervalMs: 2000,
+      defaultConnectLabelCount: 2,
+      minConnectLabelCount: 1,
+      maxConnectLabelCount: 50
     }
   };
 
@@ -218,6 +221,106 @@
       textAlign: 'center'
     });
 
+    const countRow = document.createElement('div');
+    Object.assign(countRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '10px',
+      marginBottom: '12px'
+    });
+
+    const countLabel = document.createElement('label');
+    countLabel.textContent = 'Anzahl Labels';
+    Object.assign(countLabel.style, {
+      fontSize: '13px',
+      fontWeight: '600',
+      color: '#333'
+    });
+
+    const countInput = document.createElement('input');
+    countInput.type = 'number';
+    countInput.min = String(USER_CONFIG.behavior.minConnectLabelCount);
+    countInput.max = String(USER_CONFIG.behavior.maxConnectLabelCount);
+    countInput.step = '1';
+    countInput.value = String(USER_CONFIG.behavior.defaultConnectLabelCount);
+    Object.assign(countInput.style, {
+      width: '90px',
+      padding: '6px 8px',
+      border: '1px solid #c6c6c6',
+      borderRadius: '6px',
+      fontSize: '13px'
+    });
+
+    const countControls = document.createElement('div');
+    Object.assign(countControls.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px'
+    });
+
+    const minusButton = document.createElement('button');
+    minusButton.type = 'button';
+    minusButton.textContent = '-';
+    Object.assign(minusButton.style, {
+      border: '1px solid #9e9e9e',
+      backgroundColor: '#f4f4f4',
+      color: '#111',
+      width: '28px',
+      height: '28px',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontWeight: '700',
+      lineHeight: '1'
+    });
+
+    const plusButton = document.createElement('button');
+    plusButton.type = 'button';
+    plusButton.textContent = '+';
+    Object.assign(plusButton.style, {
+      border: '1px solid #9e9e9e',
+      backgroundColor: '#f4f4f4',
+      color: '#111',
+      width: '28px',
+      height: '28px',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontWeight: '700',
+      lineHeight: '1'
+    });
+
+    function sanitizeCountValue() {
+      const raw = Number.parseInt(String(countInput.value || '').trim(), 10);
+      const fallback = USER_CONFIG.behavior.defaultConnectLabelCount;
+      const min = USER_CONFIG.behavior.minConnectLabelCount;
+      const max = USER_CONFIG.behavior.maxConnectLabelCount;
+      const parsed = Number.isFinite(raw) ? raw : fallback;
+      const clamped = Math.max(min, Math.min(max, parsed));
+      countInput.value = String(clamped);
+      return clamped;
+    }
+
+    minusButton.addEventListener('click', () => {
+      const current = sanitizeCountValue();
+      const min = USER_CONFIG.behavior.minConnectLabelCount;
+      countInput.value = String(Math.max(min, current - 1));
+    });
+
+    plusButton.addEventListener('click', () => {
+      const current = sanitizeCountValue();
+      const max = USER_CONFIG.behavior.maxConnectLabelCount;
+      countInput.value = String(Math.min(max, current + 1));
+    });
+
+    countInput.addEventListener('blur', sanitizeCountValue);
+    countInput.addEventListener('change', sanitizeCountValue);
+
+    countRow.appendChild(countLabel);
+    countControls.appendChild(minusButton);
+    countControls.appendChild(countInput);
+    countControls.appendChild(plusButton);
+    countRow.appendChild(countControls);
+
     const buttonRow = document.createElement('div');
     Object.assign(buttonRow.style, {
       display: 'flex',
@@ -271,12 +374,29 @@
       primaryPrint.disabled = busy;
       secondaryPrint.disabled = busy;
       close.disabled = busy;
+      countInput.disabled = busy;
+      minusButton.disabled = busy;
+      plusButton.disabled = busy;
       primaryPrint.style.opacity = busy ? '0.7' : '1';
       secondaryPrint.style.opacity = busy ? '0.7' : '1';
       close.style.opacity = busy ? '0.7' : '1';
+      countInput.style.opacity = busy ? '0.8' : '1';
+      minusButton.style.opacity = busy ? '0.7' : '1';
+      plusButton.style.opacity = busy ? '0.7' : '1';
       primaryPrint.style.cursor = busy ? 'wait' : 'pointer';
       secondaryPrint.style.cursor = busy ? 'wait' : 'pointer';
       close.style.cursor = busy ? 'wait' : 'pointer';
+      minusButton.style.cursor = busy ? 'wait' : 'pointer';
+      plusButton.style.cursor = busy ? 'wait' : 'pointer';
+    }
+
+    function getSelectedLabelCount() {
+      const raw = Number.parseInt(String(countInput.value || '').trim(), 10);
+      const fallback = USER_CONFIG.behavior.defaultConnectLabelCount;
+      const min = USER_CONFIG.behavior.minConnectLabelCount;
+      const max = USER_CONFIG.behavior.maxConnectLabelCount;
+      const parsed = Number.isFinite(raw) ? raw : fallback;
+      return Math.max(min, Math.min(max, parsed));
     }
 
     primaryPrint.addEventListener('click', async () => {
@@ -286,7 +406,7 @@
       }
       setPreviewBusy(true);
       try {
-        await onPrimaryPrint();
+        await onPrimaryPrint(getSelectedLabelCount());
       } finally {
         setPreviewBusy(false);
       }
@@ -299,7 +419,7 @@
       }
       setPreviewBusy(true);
       try {
-        await onSecondaryPrint();
+        await onSecondaryPrint(getSelectedLabelCount());
       } finally {
         setPreviewBusy(false);
       }
@@ -315,6 +435,7 @@
     panel.appendChild(title);
     panel.appendChild(labelContainer);
     panel.appendChild(hint);
+    panel.appendChild(countRow);
     buttonRow.appendChild(primaryPrint);
     buttonRow.appendChild(secondaryPrint);
     panel.appendChild(buttonRow);
@@ -634,8 +755,6 @@
           data
         };
 
-        setConnectBusy(button, true);
-
         GM_xmlhttpRequest({
           method: 'POST',
           url: CONFIG.apiUrl,
@@ -643,8 +762,6 @@
           data: JSON.stringify(payload),
           timeout: 12000,
           onload(response) {
-            setConnectBusy(button, false);
-
             let body = null;
             try {
               body = JSON.parse(response.responseText || '{}');
@@ -655,35 +772,60 @@
             if (response.status >= 200 && response.status < 300 && body?.success) {
               const target = body.data?.target || primaryIp;
               const mode = body.data?.mode || (CONFIG.simulate ? 'simulate' : 'print');
-              showMessage(`OK (${mode}): auf ${target}`);
-              resolve();
+              resolve({ ok: true, target, mode });
               return;
             }
 
             const err = body?.error?.message || `HTTP ${response.status}`;
-            showMessage(`Fehler: ${err}`);
-            resolve();
+            resolve({ ok: false, error: err });
           },
           onerror() {
-            setConnectBusy(button, false);
-            showMessage('Netzwerkfehler beim API-Call');
-            resolve();
+            resolve({ ok: false, error: 'Netzwerkfehler beim API-Call' });
           },
           ontimeout() {
-            setConnectBusy(button, false);
-            showMessage('Timeout beim API-Call');
-            resolve();
+            resolve({ ok: false, error: 'Timeout beim API-Call' });
           }
         });
       });
+    }
+
+    async function sendConnectBatch(primaryIp, fallbackIp, labelCount) {
+      const count = Math.max(1, Number.parseInt(String(labelCount || 1), 10) || 1);
+      let successful = 0;
+      let firstFailure = null;
+      let lastSuccess = null;
+
+      setConnectBusy(button, true);
+      try {
+        for (let i = 0; i < count; i += 1) {
+          const result = await sendConnectToPrinter(primaryIp, fallbackIp);
+          if (!result.ok) {
+            firstFailure = result.error || 'Unbekannter Fehler';
+            break;
+          }
+          successful += 1;
+          lastSuccess = result;
+        }
+      } finally {
+        setConnectBusy(button, false);
+      }
+
+      if (firstFailure) {
+        showMessage(`Fehler nach ${successful}/${count} Labels: ${firstFailure}`);
+        return;
+      }
+
+      const mode = lastSuccess?.mode || (CONFIG.simulate ? 'simulate' : 'print');
+      const target = lastSuccess?.target || primaryIp;
+      showMessage(`OK (${mode}): ${successful}/${count} Labels auf ${target}`);
     }
 
     showConnectLabelPreview(
       data.line1,
       data.line2,
       data.line3,
-      () => sendConnectToPrinter(CONFIG.primaryPrinterIp, CONFIG.fallbackPrinterIp),
-      () => sendConnectToPrinter(CONFIG.fallbackPrinterIp, CONFIG.fallbackPrinterIp)
+      (labelCount) => sendConnectBatch(CONFIG.primaryPrinterIp, CONFIG.fallbackPrinterIp, labelCount),
+      (labelCount) => sendConnectBatch(CONFIG.fallbackPrinterIp, CONFIG.fallbackPrinterIp, labelCount)
     );
   }
 
