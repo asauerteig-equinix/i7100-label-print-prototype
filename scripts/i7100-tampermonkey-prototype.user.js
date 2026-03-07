@@ -1,8 +1,12 @@
 // ==UserScript==
 // @name         i7100 Label Prototype Button
 // @namespace    https://local.i7100.prototype
-// @version      0.0.2
+// @version      0.0.3
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
+// @homepageURL  https://github.com/asauerteig-equinix/i7100-label-print-prototype
+// @supportURL   https://github.com/asauerteig-equinix/i7100-label-print-prototype/issues
+// @updateURL    https://raw.githubusercontent.com/asauerteig-equinix/i7100-label-print-prototype/main/scripts/i7100-tampermonkey-prototype.user.js
+// @downloadURL  https://raw.githubusercontent.com/asauerteig-equinix/i7100-label-print-prototype/main/scripts/i7100-tampermonkey-prototype.user.js
 // @match        https://jarvis-emea.equinix.com/*
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
