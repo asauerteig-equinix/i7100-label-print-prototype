@@ -48,18 +48,17 @@ function buildPrototypeJScript(input) {
 
   // Keep payload parser-safe for the printer-side JScript interpreter.
   const jscript = [
-    'var printer = new ActiveXObject("SAT_PPL.Application");',
-    `printer.SetLabelWidth(${widthMm});`,
-    `printer.SetLabelHeight(${printAreaHeightMm});`,
-    `printer.SetPrintDensity(${DEFAULT_DPI});`,
-    'printer.SetOrientation("Portrait");',
-    'printer.SetCharacterSet("UTF-8");',
-    `printer.PrintText(0, 2, "${escapeJScript(data.line1)}", 36, 36, "center", ${widthMm});`,
-    `printer.PrintText(0, 7, "${escapeJScript(data.line2)}", 22, 22, "center", ${widthMm});`,
-    `printer.PrintText(0, 10, "${escapeJScript(data.line3)}", 22, 22, "center", ${widthMm});`,
-    `printer.DrawLine(2, ${foldHalfHeightMm}, ${widthMm - 4}, ${foldHalfHeightMm}, 0.5);`,
-    `printer.PrintQRCode(${widthMm / 2 - 7}, ${foldHalfHeightMm + 2}, "LA,${escapeJScript(data.qrPayload)}", 5, "M");`,
-    'printer.Print();'
+    `SetLabelWidth(${widthMm});`,
+    `SetLabelHeight(${printAreaHeightMm});`,
+    `SetPrintDensity(${DEFAULT_DPI});`,
+    'SetOrientation("Portrait");',
+    'SetCharacterSet("UTF-8");',
+    `PrintText(0, 2, "${escapeJScript(data.line1)}", 36, 36, "center", ${widthMm});`,
+    `PrintText(0, 7, "${escapeJScript(data.line2)}", 22, 22, "center", ${widthMm});`,
+    `PrintText(0, 10, "${escapeJScript(data.line3)}", 22, 22, "center", ${widthMm});`,
+    `DrawLine(2, ${foldHalfHeightMm}, ${widthMm - 4}, ${foldHalfHeightMm}, 0.5);`,
+    `PrintQRCode(${widthMm / 2 - 7}, ${foldHalfHeightMm + 2}, "LA,${escapeJScript(data.qrPayload)}", 5, "M");`,
+    'Print();'
   ].join('\r\n');
 
   return {
@@ -89,13 +88,12 @@ function buildPatchPanelJScript(input) {
   const heightDots = mmToDots(heightMm);
 
   const jscript = [
-    'var printer = new ActiveXObject("SAT_PPL.Application");',
-    `printer.SetLabelWidth(${widthMm});`,
-    `printer.SetLabelHeight(${heightMm});`,
-    `printer.SetPrintDensity(${DEFAULT_DPI});`,
-    'printer.SetCharacterSet("UTF-8");',
-    `printer.PrintText(0, ${heightMm / 2 - 2}, "${escapeJScript(serial)}", 28, 28, "center", ${widthMm});`,
-    'printer.Print();'
+    `SetLabelWidth(${widthMm});`,
+    `SetLabelHeight(${heightMm});`,
+    `SetPrintDensity(${DEFAULT_DPI});`,
+    'SetCharacterSet("UTF-8");',
+    `PrintText(0, ${heightMm / 2 - 2}, "${escapeJScript(serial)}", 28, 28, "center", ${widthMm});`,
+    'Print();'
   ].join('\r\n');
 
   return {
