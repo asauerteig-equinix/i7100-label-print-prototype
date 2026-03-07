@@ -1,10 +1,11 @@
 const net = require('net');
 
-function sendRawZpl({ printerIp, printerPort = 9100, zpl, timeoutMs = 5000 }) {
+function sendRawPayload({ printerIp, printerPort = 9100, payload, timeoutMs = 5000 }) {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     let done = false;
     const startedAt = Date.now();
+    const bytes = Buffer.isBuffer(payload) ? payload : Buffer.from(String(payload ?? ''), 'utf8');
 
     function finish(error) {
       if (done) {
@@ -31,7 +32,7 @@ function sendRawZpl({ printerIp, printerPort = 9100, zpl, timeoutMs = 5000 }) {
     socket.once('timeout', () => finish(new Error(`Printer timeout after ${timeoutMs}ms`)));
 
     socket.connect(printerPort, printerIp, () => {
-      socket.write(zpl, (error) => {
+      socket.write(bytes, (error) => {
         if (error) {
           finish(error);
           return;
@@ -48,11 +49,11 @@ function sendRawZpl({ printerIp, printerPort = 9100, zpl, timeoutMs = 5000 }) {
   });
 }
 
-async function sendWithFallback({ zpl, primaryPrinterIp, fallbackPrinterIp, printerPort = 9100 }) {
-  const primary = await sendRawZpl({
+async function sendWithFallback({ payload, protocol = 'raw', primaryPrinterIp, fallbackPrinterIp, printerPort = 9100 }) {
+  const primary = await sendRawPayload({
     printerIp: primaryPrinterIp,
     printerPort,
-    zpl
+    payload
   }).catch((error) => ({ error }));
 
   if (!primary.error) {
@@ -60,6 +61,7 @@ async function sendWithFallback({ zpl, primaryPrinterIp, fallbackPrinterIp, prin
       printed: true,
       usedFallback: false,
       target: primaryPrinterIp,
+      protocol,
       dispatch: primary
     };
   }
@@ -70,19 +72,21 @@ async function sendWithFallback({ zpl, primaryPrinterIp, fallbackPrinterIp, prin
   if (!fallbackUsable) {
     throw Object.assign(new Error(primary.error.message || 'Primary printer failed'), {
       code: 'PRIMARY_PRINTER_FAILED',
+      protocol,
       primaryError: primary.error
     });
   }
 
-  const fallback = await sendRawZpl({
+  const fallback = await sendRawPayload({
     printerIp: fallbackPrinterIp,
     printerPort,
-    zpl
+    payload
   }).catch((error) => ({ error }));
 
   if (fallback.error) {
     throw Object.assign(new Error(fallback.error.message || 'Fallback printer failed'), {
       code: 'ALL_PRINTERS_FAILED',
+      protocol,
       primaryError: primary.error,
       fallbackError: fallback.error
     });
@@ -92,11 +96,12 @@ async function sendWithFallback({ zpl, primaryPrinterIp, fallbackPrinterIp, prin
     printed: true,
     usedFallback: true,
     target: fallbackPrinterIp,
+    protocol,
     dispatch: fallback
   };
 }
 
 module.exports = {
-  sendRawZpl,
+  sendRawPayload,
   sendWithFallback
 };

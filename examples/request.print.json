@@ -1,15 +1,12 @@
 {
+  "labelType": "i7100",
   "simulate": false,
-  "primaryPrinterIp": "10.10.10.120",
-  "fallbackPrinterIp": "10.10.10.130",
+  "primaryPrinterIp": "10.145.162.22",
+  "fallbackPrinterIp": "10.145.162.32",
   "printerPort": 9100,
   "data": {
     "line1": "21304050",
-    "ibx": "FR2",
-    "floor": "0G",
-    "cabinet": "0101",
-    "number": "123456",
-    "portA": "11",
-    "portB": "12"
+    "line2": "FR2:0G:0101:123456:11+12",
+    "line3": "FR2:0G:0201:654321:21+22"
   }
 }

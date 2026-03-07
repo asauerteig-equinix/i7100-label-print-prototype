@@ -1,0 +1,10 @@
+{
+  "labelType": "patch-panel",
+  "simulate": true,
+  "primaryPrinterIp": "10.145.162.23",
+  "fallbackPrinterIp": "10.145.162.23",
+  "printerPort": 9100,
+  "data": {
+    "line1": "PP-998877"
+  }
+}

@@ -4,9 +4,10 @@ Dieses Projekt ist ein vollständig eigenständiger lokaler Prototyp.
 
 ## Ziel
 - Tampermonkey-Button in beliebiger Webseite injizieren
-- zunächst nur feste Testdaten senden (kein Scraping)
-- API erzeugt ZPL für Brady i7100 (ZPL-Emulator)
-- optionaler Druck per Raw TCP an Primär-/Fallback-Drucker
+- Tampermonkey sammelt Daten aus Jarvis und sendet an die API
+- API validiert die Daten streng (keine Testdaten/Fallback-Werte)
+- i7100: ZPL via Raw TCP (Port 9100)
+- PT-P950: ESC/P via Raw TCP
 
 ## Label-Layout (aus deiner Vorgabe)
 - Breite: 38.1mm
@@ -23,11 +24,21 @@ Dieses Projekt ist ein vollständig eigenständiger lokaler Prototyp.
 - `POST /api/prototype/print`
 
 ### `POST /api/prototype/print`
-- `simulate: true` (Default): erzeugt nur ZPL + Metadaten
-- `simulate: false`: sendet ZPL an Drucker
-  - Primär: `10.10.10.120`
-  - Fallback: `10.10.10.130`
-  - Port: `9100`
+- `simulate: true` (Default): erzeugt nur Render-Daten + Metadaten
+- `simulate: false`: sendet an den Drucker mit passendem Protokoll je `labelType`
+- `labelType: i7100`
+  - erforderliche Felder: `data.line1`, `data.line2`, `data.line3`
+  - Protokoll: `zpl`
+  - Default-Drucker: `10.145.162.22` (Fallback `10.145.162.32`)
+- `labelType: patch-panel`
+  - erforderliches Feld: `data.line1` (alternativ `data.serial` oder `data.value`)
+  - Protokoll: `escp`
+  - typischer Drucker: PT-P950 (`10.145.162.23`)
+
+### Lesbare Fehlerantworten
+- Bei unvollstaendigen Daten gibt die API `422` zurueck mit:
+  - `error.message` (direkt fuer UI lesbar)
+  - `error.fields` (betroffene Request-Felder)
 
 ## Lokal starten
 1. `cd "c:\Users\Simaxe\GitHub Repos\i7100-label-print-prototype"`
@@ -38,10 +49,16 @@ Dieses Projekt ist ein vollständig eigenständiger lokaler Prototyp.
 PowerShell:
 `Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.simulate.json"`
 
+Patch-Panel Simulation:
+`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.patch-panel.simulate.json"`
+
 ## Test mit echtem Druck
 - in `examples/request.print.json` bleibt `simulate: false`
 - dann senden:
 `Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.print.json"`
+
+Patch-Panel Druck:
+`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.patch-panel.print.json"`
 
 ## Podman/Portainer
 - Compose-Datei: `podman-compose.yml`
@@ -70,12 +87,14 @@ Für den Portainer Web-Editor ohne Git verwende stattdessen `portainer-stack.yml
 ## Tampermonkey-Prototyp
 - Datei: `scripts/i7100-tampermonkey-prototype.user.js`
 - in Tampermonkey als neues Script importieren
-- zeigt unten rechts den Button `Test-Label drucken`
-- sendet feste Testdaten an `http://127.0.0.1:3000/api/prototype/print`
+- sammelt Daten im Browser und sendet sie an `POST /api/prototype/print`
+- Tampermonkey ist nur fuer Datenerhebung/Absenden zustaendig, die Drucklogik liegt im Backend
 
 Wenn API auf VM läuft:
 - im Userscript `CONFIG.apiUrl` auf VM-URL anpassen
 - zusätzlich passende `@connect` Hosteinträge ergänzen
 
 ## Hinweis zu macOS ohne Treiber
-Da direkt per TCP (`9100`) gedruckt wird, ist kein nativer macOS-Druckertreiber nötig. Voraussetzung ist, dass der i7100 im ZPL-Emulator-Modus erreichbar ist.
+Da direkt per TCP (`9100`) gedruckt wird, ist kein nativer macOS-Druckertreiber noetig.
+- Voraussetzung i7100: ZPL-Emulator aktiv
+- Voraussetzung PT-P950: ESC/P ueber Netzwerk muss unterstuetzt/aktiviert sein
