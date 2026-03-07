@@ -10,12 +10,16 @@ function normalize(value, fallback = '') {
   return text || fallback;
 }
 
-function escapeJScript(text) {
+function sanitizeJScriptText(text) {
   return String(text ?? '')
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\[/g, '(')
+    .replace(/\]/g, ')')
+    .trim();
+}
+
+function buildJob(commands) {
+  return `${commands.join('\r\n')}\r\n`;
 }
 
 function buildLabelData(input) {
@@ -46,20 +50,23 @@ function buildPrototypeJScript(input) {
   const printAreaDots = mmToDots(printAreaHeightMm);
   const halfAreaDots = Math.floor(printAreaDots / 2);
 
-  // Keep payload parser-safe for the printer-side JScript interpreter.
-  const jscript = [
-    `SetLabelWidth(${widthMm});`,
-    `SetLabelHeight(${printAreaHeightMm});`,
-    `SetPrintDensity(${DEFAULT_DPI});`,
-    'SetOrientation("Portrait");',
-    'SetCharacterSet("UTF-8");',
-    `PrintText(0, 2, "${escapeJScript(data.line1)}", 36, 36, "center", ${widthMm});`,
-    `PrintText(0, 7, "${escapeJScript(data.line2)}", 22, 22, "center", ${widthMm});`,
-    `PrintText(0, 10, "${escapeJScript(data.line3)}", 22, 22, "center", ${widthMm});`,
-    `DrawLine(2, ${foldHalfHeightMm}, ${widthMm - 4}, ${foldHalfHeightMm}, 0.5);`,
-    `PrintQRCode(${widthMm / 2 - 7}, ${foldHalfHeightMm + 2}, "LA,${escapeJScript(data.qrPayload)}", 5, "M");`,
-    'Print();'
-  ].join('\r\n');
+  const safeLine1 = sanitizeJScriptText(data.line1);
+  const safeLine2 = sanitizeJScriptText(data.line2);
+  const safeLine3 = sanitizeJScriptText(data.line3);
+  const safeQrPayload = sanitizeJScriptText(data.qrPayload);
+
+  // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
+  const jscript = buildJob([
+    'm m',
+    'J',
+    `S l1;0,0,${printAreaHeightMm},${printAreaHeightMm},${widthMm}`,
+    `T 0,3.5,0,5,pt16;${safeLine1}[J:c${widthMm}]`,
+    `T 0,10.5,0,3,pt9;${safeLine2}[J:c${widthMm}]`,
+    `T 0,15.5,0,3,pt9;${safeLine3}[J:c${widthMm}]`,
+    `G 2,${foldHalfHeightMm},0;L:${widthMm - 4},0.5`,
+    `B ${widthMm / 2 - 8},${foldHalfHeightMm + 2.5},0,QRCODE+ELM+MODEL2+WS1,0.8;${safeQrPayload}`,
+    'A 1'
+  ]);
 
   return {
     jscript,
@@ -87,14 +94,14 @@ function buildPatchPanelJScript(input) {
   const widthDots = mmToDots(widthMm);
   const heightDots = mmToDots(heightMm);
 
-  const jscript = [
-    `SetLabelWidth(${widthMm});`,
-    `SetLabelHeight(${heightMm});`,
-    `SetPrintDensity(${DEFAULT_DPI});`,
-    'SetCharacterSet("UTF-8");',
-    `PrintText(0, ${heightMm / 2 - 2}, "${escapeJScript(serial)}", 28, 28, "center", ${widthMm});`,
-    'Print();'
-  ].join('\r\n');
+  const safeSerial = sanitizeJScriptText(serial);
+  const jscript = buildJob([
+    'm m',
+    'J',
+    `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
+    `T 0,5.8,0,5,pt11;${safeSerial}[J:c${widthMm}]`,
+    'A 1'
+  ]);
 
   return {
     jscript,
