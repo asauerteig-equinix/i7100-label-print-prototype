@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { buildPrototypeJScript } = require('./jscript');
+const { buildPrototypeZpl } = require('./zpl');
 const { buildPatchPanelEscp } = require('./ptouch');
 const { sendWithFallback } = require('./printerClient');
 
@@ -16,7 +16,9 @@ const DEFAULT_PRINTER_PORT = Number(process.env.PRINTER_PORT || 9100);
 
 const LABEL_TYPE_I7100 = 'i7100';
 const LABEL_TYPE_PATCH_PANEL = 'patch-panel';
-const PROTOCOL_JSCRIPT = 'jscript';
+const PROTOCOL_ZPL = 'zpl';
+const PROTOCOL_ZPL_EMULATION = 'zpl-emulation';
+const PROTOCOL_JSCRIPT_LEGACY = 'jscript';
 const PROTOCOL_ESCP = 'escp';
 
 function normalizeText(value) {
@@ -33,12 +35,21 @@ function parseProtocol(value) {
 
 function expectedProtocolFor(labelType) {
   if (labelType === LABEL_TYPE_I7100) {
-    return PROTOCOL_JSCRIPT;
+    return PROTOCOL_ZPL;
   }
   if (labelType === LABEL_TYPE_PATCH_PANEL) {
     return PROTOCOL_ESCP;
   }
   return '';
+}
+
+function canonicalizeProtocol(labelType, protocol) {
+  if (labelType === LABEL_TYPE_I7100) {
+    if (protocol === PROTOCOL_ZPL_EMULATION || protocol === PROTOCOL_JSCRIPT_LEGACY) {
+      return PROTOCOL_ZPL;
+    }
+  }
+  return protocol;
 }
 
 function sendValidationError(res, message, fields = [], status = 422) {
@@ -99,7 +110,7 @@ app.get('/api/prototype/default-data', (_req, res) => {
     success: true,
     data: {
       supportedLabelTypes: [LABEL_TYPE_I7100, LABEL_TYPE_PATCH_PANEL],
-      supportedProtocols: [PROTOCOL_JSCRIPT, PROTOCOL_ESCP],
+      supportedProtocols: [PROTOCOL_ZPL, PROTOCOL_ZPL_EMULATION, PROTOCOL_ESCP],
       printer: {
         primaryPrinterIp: DEFAULT_PRIMARY_PRINTER_IP,
         fallbackPrinterIp: DEFAULT_FALLBACK_PRINTER_IP,
@@ -136,11 +147,14 @@ app.post('/api/prototype/print', async (req, res) => {
       );
     }
 
-    const printerProtocol = parseProtocol(payload.printerProtocol || expectedProtocol);
+    const requestedPrinterProtocol = parseProtocol(payload.printerProtocol || expectedProtocol);
+    const printerProtocol = canonicalizeProtocol(labelType, requestedPrinterProtocol);
     if (printerProtocol !== expectedProtocol) {
+      const expectedDisplay =
+        labelType === LABEL_TYPE_I7100 ? `${PROTOCOL_ZPL} oder ${PROTOCOL_ZPL_EMULATION}` : expectedProtocol;
       return sendValidationError(
         res,
-        `Falsches Protokoll fuer ${labelType}: erwartet ${expectedProtocol}, erhalten ${printerProtocol || 'leer'}.`,
+        `Falsches Protokoll fuer ${labelType}: erwartet ${expectedDisplay}, erhalten ${requestedPrinterProtocol || 'leer'}.`,
         ['printerProtocol']
       );
     }
@@ -154,8 +168,8 @@ app.post('/api/prototype/print', async (req, res) => {
         return sendValidationError(res, validation.message, validation.fields);
       }
 
-      result = buildPrototypeJScript(data);
-      printPayload = result.jscript;
+      result = buildPrototypeZpl(data);
+      printPayload = result.zpl;
     } else if (labelType === LABEL_TYPE_PATCH_PANEL) {
       const validation = validatePatchPanelData(data);
       if (!validation.ok) {

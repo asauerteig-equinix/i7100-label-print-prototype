@@ -10,13 +10,12 @@ function normalize(value, fallback = '') {
   return text || fallback;
 }
 
-function toZplHex(text) {
-  const bytes = Buffer.from(String(text ?? ''), 'utf8');
-  let hex = '';
-  for (const byte of bytes) {
-    hex += `_${byte.toString(16).padStart(2, '0').toUpperCase()}`;
-  }
-  return hex;
+function toSafeZplText(text) {
+  return String(text ?? '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/[\^~]/g, '-')
+    .replace(/[^\x20-\x7E]/g, '?')
+    .trim();
 }
 
 function buildLabelData(input) {
@@ -36,6 +35,10 @@ function buildLabelData(input) {
 
 function buildPrototypeZpl(input) {
   const data = buildLabelData(input);
+  const line1 = toSafeZplText(data.line1);
+  const line2 = toSafeZplText(data.line2);
+  const line3 = toSafeZplText(data.line3);
+  const qrPayload = toSafeZplText(`LA,${data.qrPayload}`);
 
   const widthDots = mmToDots(38.1);
   const labelHeightDots = mmToDots(101.6);
@@ -45,17 +48,16 @@ function buildPrototypeZpl(input) {
 
   const zpl = [
     '^XA',
-    '^CI28',
     `^PW${widthDots}`,
     `^LL${printAreaDots}`,
     '^LH0,0',
-    `^FO0,20^A0N,36,36^FB${widthDots},1,0,C,0^FH^FD${toZplHex(data.line1)}^FS`,
-    `^FO0,70^A0N,22,22^FB${widthDots},1,0,C,0^FH^FD${toZplHex(data.line2)}^FS`,
-    `^FO0,100^A0N,22,22^FB${widthDots},1,0,C,0^FH^FD${toZplHex(data.line3)}^FS`,
+    `^FO0,20^A0N,36,36^FB${widthDots},1,0,C,0^FD${line1}^FS`,
+    `^FO0,70^A0N,22,22^FB${widthDots},1,0,C,0^FD${line2}^FS`,
+    `^FO0,100^A0N,22,22^FB${widthDots},1,0,C,0^FD${line3}^FS`,
     `^FO20,${halfAreaDots}^GB${Math.max(widthDots - 40, 10)},2,2^FS`,
-    `^FO95,${qrTop}^BQN,2,5^FH^FD${toZplHex(`LA,${data.qrPayload}`)}^FS`,
+    `^FO95,${qrTop}^BQN,2,5^FD${qrPayload}^FS`,
     '^XZ'
-  ].join('\n');
+  ].join('\r\n');
 
   return {
     zpl,
@@ -77,6 +79,7 @@ function buildPrototypeZpl(input) {
 function buildPatchPanelZpl(input) {
   const source = input && typeof input === 'object' ? input : {};
   const serial = normalize(source.line1 || source.serial || source.value, '');
+  const safeSerial = toSafeZplText(serial);
 
   const widthMm = 42;
   const heightMm = 9;
@@ -89,13 +92,12 @@ function buildPatchPanelZpl(input) {
 
   const zpl = [
     '^XA',
-    '^CI28',
     `^PW${widthDots}`,
     `^LL${heightDots}`,
     '^LH0,0',
-    `^FO0,${topOffset}^A0N,${fontHeight},${fontWidth}^FB${widthDots},1,0,C,0^FH^FD${toZplHex(serial)}^FS`,
+    `^FO0,${topOffset}^A0N,${fontHeight},${fontWidth}^FB${widthDots},1,0,C,0^FD${safeSerial}^FS`,
     '^XZ'
-  ].join('\n');
+  ].join('\r\n');
 
   return {
     zpl,
