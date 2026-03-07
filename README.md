@@ -6,7 +6,7 @@ Dieses Projekt ist ein vollständig eigenständiger lokaler Prototyp.
 - Tampermonkey-Button in beliebiger Webseite injizieren
 - Tampermonkey sammelt Daten aus Jarvis und sendet an die API
 - API validiert die Daten streng (keine Testdaten/Fallback-Werte)
-- i7100: ZPL via Raw TCP (Port 9100)
+- i7100: JScript via Raw TCP (Port 9100)
 - PT-P950: ESC/P via Raw TCP
 
 ## Label-Layout (aus deiner Vorgabe)
@@ -28,7 +28,7 @@ Dieses Projekt ist ein vollständig eigenständiger lokaler Prototyp.
 - `simulate: false`: sendet an den Drucker mit passendem Protokoll je `labelType`
 - `labelType: i7100`
   - erforderliche Felder: `data.line1`, `data.line2`, `data.line3`
-  - Protokoll: `zpl`
+  - Protokoll: `jscript`
   - Default-Drucker: `10.145.162.22` (Fallback `10.145.162.32`)
 - `labelType: patch-panel`
   - erforderliches Feld: `data.line1` (alternativ `data.serial` oder `data.value`)

@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { buildPrototypeZpl } = require('./zpl');
+const { buildPrototypeJScript } = require('./jscript');
 const { buildPatchPanelEscp } = require('./ptouch');
 const { sendWithFallback } = require('./printerClient');
 
@@ -16,7 +16,7 @@ const DEFAULT_PRINTER_PORT = Number(process.env.PRINTER_PORT || 9100);
 
 const LABEL_TYPE_I7100 = 'i7100';
 const LABEL_TYPE_PATCH_PANEL = 'patch-panel';
-const PROTOCOL_ZPL = 'zpl';
+const PROTOCOL_JSCRIPT = 'jscript';
 const PROTOCOL_ESCP = 'escp';
 
 function normalizeText(value) {
@@ -33,7 +33,7 @@ function parseProtocol(value) {
 
 function expectedProtocolFor(labelType) {
   if (labelType === LABEL_TYPE_I7100) {
-    return PROTOCOL_ZPL;
+    return PROTOCOL_JSCRIPT;
   }
   if (labelType === LABEL_TYPE_PATCH_PANEL) {
     return PROTOCOL_ESCP;
@@ -99,7 +99,7 @@ app.get('/api/prototype/default-data', (_req, res) => {
     success: true,
     data: {
       supportedLabelTypes: [LABEL_TYPE_I7100, LABEL_TYPE_PATCH_PANEL],
-      supportedProtocols: [PROTOCOL_ZPL, PROTOCOL_ESCP],
+      supportedProtocols: [PROTOCOL_JSCRIPT, PROTOCOL_ESCP],
       printer: {
         primaryPrinterIp: DEFAULT_PRIMARY_PRINTER_IP,
         fallbackPrinterIp: DEFAULT_FALLBACK_PRINTER_IP,
@@ -154,8 +154,8 @@ app.post('/api/prototype/print', async (req, res) => {
         return sendValidationError(res, validation.message, validation.fields);
       }
 
-      result = buildPrototypeZpl(data);
-      printPayload = result.zpl;
+      result = buildPrototypeJScript(data);
+      printPayload = result.jscript;
     } else if (labelType === LABEL_TYPE_PATCH_PANEL) {
       const validation = validatePatchPanelData(data);
       if (!validation.ok) {
