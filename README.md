@@ -47,22 +47,29 @@ Dieses Projekt ist ein vollständig eigenständiger lokaler Prototyp.
 
 ## Test mit curl (Simulation)
 PowerShell:
-`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.simulate.json"`
+`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5100/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.simulate.json"`
 
 Patch-Panel Simulation:
-`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.patch-panel.simulate.json"`
+`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5100/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.patch-panel.simulate.json"`
 
 ## Test mit echtem Druck
 - in `examples/request.print.json` bleibt `simulate: false`
 - dann senden:
-`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.print.json"`
+`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5100/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.print.json"`
 
 Patch-Panel Druck:
-`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:3000/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.patch-panel.print.json"`
+`Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5100/api/prototype/print" -ContentType "application/json" -InFile ".\examples\request.patch-panel.print.json"`
 
 ## Podman/Portainer
 - Compose-Datei: `podman-compose.yml`
 - Dockerfile: `docker/Dockerfile`
+
+### Deployment-Readiness (geprueft)
+- Produktionsabhaengigkeiten sind im Lockfile fixiert (`package-lock.json`).
+- Container baut deterministisch mit `npm ci --omit=dev`.
+- Healthcheck ist im Image vorhanden (`/health`).
+- Build-Kontext ist abgesichert ueber `.dockerignore` (keine lokalen `node_modules` im Image).
+- API-Start wurde lokal erfolgreich geprueft (`GET /health` liefert `success: true`).
 
 ### Warum der Fehler `lstat /data/compose/.../docker: no such file or directory` auftritt
 Wenn du im Portainer **Stack Web-Editor** nur YAML einfügst, liegt im Build-Kontext nur diese eine Datei.
@@ -72,10 +79,17 @@ Die Ordner `docker/` und `src/` fehlen dort, daher kann `build` nicht funktionie
 1. Auf dem Raspberry Pi im Projektordner einmalig Image bauen:
   `docker build -t i7100-print-prototype:local -f docker/Dockerfile .`
 2. In Portainer Stack dann **ohne build** deployen mit `portainer-stack.yml`.
+3. Nach Deploy pruefen:
+  `curl http://<HOST>:5100/health`
 
 ### Deployment-Variante B (automatischer Build in Portainer)
 - In Portainer `Deploy from Git repository` verwenden,
 - damit Portainer den vollständigen Projektinhalt (`docker/`, `src/`, `package.json`) auscheckt.
+
+Wichtig:
+- Portainer Web-Editor mit reinem YAML kann ohne Git/Dateisystem-Mount keinen Build-Kontext liefern.
+- Falls du Web-Editor nutzt, nimm `portainer-stack.yml` (Image muss vorher lokal gebaut sein).
+- Falls du Build im Portainer willst, nutze Git-Deployment mit `podman-compose.yml`.
 
 Beispiel lokal:
 1. `podman compose -f podman-compose.yml up -d --build`

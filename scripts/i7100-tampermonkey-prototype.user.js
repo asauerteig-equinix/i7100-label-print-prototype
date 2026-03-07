@@ -7,6 +7,7 @@
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
 // @connect      localhost
+// @connect      fr2lxcops01
 // ==/UserScript==
 
 (function () {
@@ -62,7 +63,7 @@
   const SIMULATE_MODE = true;
 
   const CONFIG = {
-    apiUrl: 'http://fr2lxcops01:3000/api/prototype/print',
+    apiUrl: 'http://fr2lxcops01:5100/api/prototype/print',
     simulate: SIMULATE_MODE,
     primaryPrinterIp: '10.145.162.22',
     fallbackPrinterIp: '10.145.162.32',
