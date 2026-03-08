@@ -62,7 +62,7 @@
   };
 
   // Single toggle to control whether API calls should print or only simulate.
-  const SIMULATE_MODE = true;
+  const SIMULATE_MODE = false;
 
   const CONFIG = {
     apiUrl: 'http://fr2lxcops01:5100/api/label/print',
