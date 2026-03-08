@@ -87,17 +87,20 @@ function buildI7100JScript(input) {
   const safeSerial = safeLine1;
   const copies = normalizeCopies(data.copies, 1);
   const line1Pt = calcPointSize(safeLine1, 14, 8, 18);
-  const line2Pt = calcPointSize(safeLine2, 10, 7, 24);
-  const line3Pt = calcPointSize(safeLine3, 10, 7, 24);
+  const line2Pt = calcPointSize(safeLine2, 9, 6, 28);
+  const line3Pt = calcPointSize(safeLine3, 9, 6, 28);
+  const contentRotation = 0;
   const qrModuleSize = 0.85;
   const qrX = widthMm / 2 - 8.5;
   const qrY = printAreaOffsetYMm + 2.4;
-  const serialUnderQrY = foldHalfHeightMm + printAreaOffsetYMm - 2.2;
+  const serialUnderQrY = foldHalfHeightMm + printAreaOffsetYMm - 3.0;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
-  const textTopY = printAreaOffsetYMm + 47.2;
+  const textSerialY = foldLineY + 3.2;
+  const textLine2Y = foldLineY + 9.2;
+  const textLine3Y = foldLineY + 14.8;
   const serialTextPt = Math.max(line1Pt, 12);
-  const textLine2Pt = Math.min(line2Pt, 8);
-  const textLine3Pt = Math.min(line3Pt, 8);
+  const textLine2Pt = Math.min(line2Pt, 7);
+  const textLine3Pt = Math.min(line3Pt, 7);
 
   // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
   const jscript = buildJob([
@@ -105,12 +108,12 @@ function buildI7100JScript(input) {
     'J',
     `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
     ...(copies > 1 ? ['C e'] : []),
-    `B ${qrX},${qrY},2,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
-    `T 0,${serialUnderQrY},2,3,pt8;${safeSerial}[J:c${widthMm}]`,
+    `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
+    `T 0,${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${widthMm}]`,
     `G 2,${foldLineY},0;L:${widthMm - 4},0.5`,
-    `T 0,${textTopY},2,3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
-    `T 0,${textTopY - 7},2,3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
-    `T 0,${textTopY - 13},2,3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
+    `T 0,${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
+    `T 0,${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
+    `T 0,${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
     `A ${copies}`
   ]);
 
