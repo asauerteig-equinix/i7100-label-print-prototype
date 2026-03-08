@@ -107,6 +107,7 @@ function buildI7100JScript(input) {
     'm m',
     'J',
     `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
+    'O R',
     'C e',
     `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
     `T 0,${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${widthMm}]`,
