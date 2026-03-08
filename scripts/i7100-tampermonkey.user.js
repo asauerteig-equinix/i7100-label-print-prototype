@@ -762,7 +762,7 @@
       return;
     }
 
-    function sendConnectToPrinter(primaryIp, fallbackIp) {
+    function sendConnectToPrinter(primaryIp, fallbackIp, copies) {
       return new Promise((resolve) => {
         const payload = {
           labelType: 'i7100',
@@ -770,6 +770,7 @@
           primaryPrinterIp: primaryIp,
           fallbackPrinterIp: fallbackIp,
           printerPort: CONFIG.printerPort,
+          copies: Math.max(1, Number.parseInt(String(copies || 1), 10) || 1),
           data
         };
 
@@ -790,7 +791,8 @@
             if (response.status >= 200 && response.status < 300 && body?.success) {
               const target = body.data?.target || primaryIp;
               const mode = body.data?.mode || (CONFIG.simulate ? 'simulate' : 'print');
-              resolve({ ok: true, target, mode });
+              const printedCopies = Number.parseInt(String(body.data?.data?.copies || payload.copies), 10) || payload.copies;
+              resolve({ ok: true, target, mode, printedCopies });
               return;
             }
 
@@ -813,35 +815,27 @@
       }
 
       const count = Math.max(1, Number.parseInt(String(labelCount || 1), 10) || 1);
-      let successful = 0;
-      let firstFailure = null;
-      let lastSuccess = null;
 
       connectBatchInFlight = true;
       setConnectBusy(button, true);
+      let result = null;
       try {
-        for (let i = 0; i < count; i += 1) {
-          const result = await sendConnectToPrinter(primaryIp, fallbackIp);
-          if (!result.ok) {
-            firstFailure = result.error || 'Unbekannter Fehler';
-            break;
-          }
-          successful += 1;
-          lastSuccess = result;
-        }
+        result = await sendConnectToPrinter(primaryIp, fallbackIp, count);
       } finally {
         connectBatchInFlight = false;
         setConnectBusy(button, false);
       }
 
-      if (firstFailure) {
-        showMessage(`Fehler nach ${successful}/${count} Labels: ${firstFailure}`);
+      if (!result?.ok) {
+        const err = result?.error || 'Unbekannter Fehler';
+        showMessage(`Fehler beim Druckauftrag (${count} Labels): ${err}`);
         return;
       }
 
-      const mode = lastSuccess?.mode || (CONFIG.simulate ? 'simulate' : 'print');
-      const target = lastSuccess?.target || primaryIp;
-      showMessage(`OK (${mode}): ${successful}/${count} Labels auf ${target}`);
+      const mode = result.mode || (CONFIG.simulate ? 'simulate' : 'print');
+      const target = result.target || primaryIp;
+      const printedCopies = result.printedCopies || count;
+      showMessage(`OK (${mode}): ${printedCopies} Labels auf ${target}`);
     }
 
     showConnectLabelPreview(

@@ -10,6 +10,14 @@ function normalize(value, fallback = '') {
   return text || fallback;
 }
 
+function normalizeCopies(value, fallback = 1) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return Math.min(parsed, 500);
+}
+
 function sanitizeJScriptText(text) {
   return String(text ?? '')
     .replace(/[\r\n\t]+/g, ' ')
@@ -47,12 +55,14 @@ function buildLabelData(input) {
   const line2 = normalize(source.line2, '');
   const line3 = normalize(source.line3, '');
   const qrPayload = resolveQrPayload(source, line1, line2, line3);
+  const copies = normalizeCopies(source.copies, 1);
 
   return {
     line1,
     line2,
     line3,
-    qrPayload
+    qrPayload,
+    copies
   };
 }
 
@@ -74,6 +84,7 @@ function buildI7100JScript(input) {
   const safeLine3 = sanitizeJScriptText(data.line3);
   const safeQrPayload = sanitizeJScriptText(data.qrPayload);
   const safeSerial = safeLine1;
+  const copies = normalizeCopies(data.copies, 1);
   const line1Pt = calcPointSize(safeLine1, 14, 8, 18);
   const line2Pt = calcPointSize(safeLine2, 10, 7, 24);
   const line3Pt = calcPointSize(safeLine3, 10, 7, 24);
@@ -84,13 +95,14 @@ function buildI7100JScript(input) {
     'm m',
     'J',
     `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
+    ...(copies > 1 ? ['C e'] : []),
     `B ${widthMm / 2 - 11},3.2,0,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
     `T 0,20.2,0,3,pt8;${safeSerial}[J:c${widthMm}]`,
     `G 2,${foldHalfHeightMm},0;L:${widthMm - 4},0.5`,
     `T 0,29.2,0,3,pt${line1Pt};${safeLine1}[J:c${widthMm}]`,
     `T 0,36.2,0,3,pt${line2Pt};${safeLine2}[J:c${widthMm}]`,
     `T 0,42.8,0,3,pt${line3Pt};${safeLine3}[J:c${widthMm}]`,
-    'A 1'
+    `A ${copies}`
   ]);
 
   return {

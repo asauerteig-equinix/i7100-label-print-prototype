@@ -33,6 +33,14 @@ function parseProtocol(value) {
   return normalizeText(value).toLowerCase().replace(/_/g, '-');
 }
 
+function parseCopies(value, fallback = 1) {
+  const parsed = Number.parseInt(String(value ?? fallback), 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
+  }
+  return Math.min(parsed, 500);
+}
+
 function expectedProtocolFor(labelType) {
   if (labelType === LABEL_TYPE_I7100) {
     return PROTOCOL_JSCRIPT;
@@ -166,7 +174,11 @@ app.post('/api/label/print', async (req, res) => {
         return sendValidationError(res, validation.message, validation.fields);
       }
 
-      result = buildI7100JScript(data);
+      const copies = parseCopies(payload.copies ?? data.copies, 1);
+      result = buildI7100JScript({
+        ...data,
+        copies
+      });
       printPayload = result.jscript;
     } else if (labelType === LABEL_TYPE_PATCH_PANEL) {
       const validation = validatePatchPanelData(data);
