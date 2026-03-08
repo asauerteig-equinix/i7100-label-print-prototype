@@ -73,6 +73,7 @@ function buildI7100JScript(input) {
   const heightMm = 101.6;
   const printAreaHeightMm = 50.8;
   const foldHalfHeightMm = 25.4;
+  const printAreaOffsetYMm = heightMm - printAreaHeightMm;
   
   const widthDots = mmToDots(widthMm);
   const labelHeightDots = mmToDots(heightMm);
@@ -88,7 +89,15 @@ function buildI7100JScript(input) {
   const line1Pt = calcPointSize(safeLine1, 14, 8, 18);
   const line2Pt = calcPointSize(safeLine2, 10, 7, 24);
   const line3Pt = calcPointSize(safeLine3, 10, 7, 24);
-  const qrModuleSize = 1.3;
+  const qrModuleSize = 0.85;
+  const qrX = widthMm / 2 - 8.5;
+  const qrY = printAreaOffsetYMm + 2.4;
+  const serialUnderQrY = printAreaOffsetYMm + 19.5;
+  const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
+  const textTopY = printAreaOffsetYMm + 47.2;
+  const serialTextPt = Math.max(line1Pt, 12);
+  const textLine2Pt = Math.min(line2Pt, 8);
+  const textLine3Pt = Math.min(line3Pt, 8);
 
   // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
   const jscript = buildJob([
@@ -96,12 +105,12 @@ function buildI7100JScript(input) {
     'J',
     `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
     ...(copies > 1 ? ['C e'] : []),
-    `B ${widthMm / 2 - 11},3.2,0,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
-    `T 0,20.2,0,3,pt8;${safeSerial}[J:c${widthMm}]`,
-    `G 2,${foldHalfHeightMm},0;L:${widthMm - 4},0.5`,
-    `T 0,29.2,0,3,pt${line1Pt};${safeLine1}[J:c${widthMm}]`,
-    `T 0,36.2,0,3,pt${line2Pt};${safeLine2}[J:c${widthMm}]`,
-    `T 0,42.8,0,3,pt${line3Pt};${safeLine3}[J:c${widthMm}]`,
+    `B ${qrX},${qrY},0,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
+    `T 0,${serialUnderQrY},0,3,pt8;${safeSerial}[J:c${widthMm}]`,
+    `G 2,${foldLineY},0;L:${widthMm - 4},0.5`,
+    `T 0,${textTopY},2,3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
+    `T 0,${textTopY - 7},2,3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
+    `T 0,${textTopY - 13},2,3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
     `A ${copies}`
   ]);
 
