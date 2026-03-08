@@ -91,8 +91,9 @@ function buildI7100JScript(input) {
   const line3Pt = calcPointSize(safeLine3, 7, 5, 32);
   const contentRotation = 0;
   const qrModuleSize = 0.85;
-  const xOffsetMm = 3.0;
-  const qrX = widthMm / 2 - 8.5 + xOffsetMm;
+  const xOffsetMm = 1.5;
+  const usableWidthMm = widthMm - xOffsetMm;
+  const qrX = usableWidthMm / 2 - 8.5 + xOffsetMm;
   const yOffsetMm = -printAreaHeightMm;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
   const cutLineY = foldLineY + yOffsetMm;
@@ -113,11 +114,11 @@ function buildI7100JScript(input) {
     'O R',
     'C e',
     `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
-    `T ${xOffsetMm},${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${widthMm}]`,
-    `G ${2 + xOffsetMm},${cutLineY},0;L:${widthMm - 4},0.5`,
-    `T ${xOffsetMm},${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
-    `T ${xOffsetMm},${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
-    `T ${xOffsetMm},${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
+    `T ${xOffsetMm},${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${usableWidthMm}]`,
+    `G ${2 + xOffsetMm},${cutLineY},0;L:${usableWidthMm - 4},0.5`,
+    `T ${xOffsetMm},${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${usableWidthMm}]`,
+    `T ${xOffsetMm},${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${usableWidthMm}]`,
+    `T ${xOffsetMm},${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${usableWidthMm}]`,
     `A ${copies}`
   ]);
 
