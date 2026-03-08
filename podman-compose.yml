@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  i7100-print-prototype:
-    container_name: i7100-print-prototype
+  i7100-label-print:
+    container_name: i7100-label-print
     build:
       context: .
       dockerfile: docker/Dockerfile

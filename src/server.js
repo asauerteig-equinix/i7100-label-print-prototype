@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { buildPrototypeJScript } = require('./jscript');
+const { buildI7100JScript } = require('./jscript');
 const { buildPatchPanelEscp } = require('./ptouch');
 const { sendWithFallback } = require('./printerClient');
 
@@ -101,11 +101,11 @@ app.use(express.json({ limit: '256kb' }));
 app.get('/health', (_req, res) => {
   res.json({
     success: true,
-    service: 'i7100-label-print-prototype'
+    service: 'i7100-label-print'
   });
 });
 
-app.get('/api/prototype/default-data', (_req, res) => {
+app.get('/api/label/default-data', (_req, res) => {
   res.json({
     success: true,
     data: {
@@ -120,7 +120,7 @@ app.get('/api/prototype/default-data', (_req, res) => {
   });
 });
 
-app.post('/api/prototype/print', async (req, res) => {
+app.post('/api/label/print', async (req, res) => {
   try {
     const payload = req.body && typeof req.body === 'object' ? req.body : {};
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
@@ -166,7 +166,7 @@ app.post('/api/prototype/print', async (req, res) => {
         return sendValidationError(res, validation.message, validation.fields);
       }
 
-      result = buildPrototypeJScript(data);
+      result = buildI7100JScript(data);
       printPayload = result.jscript;
     } else if (labelType === LABEL_TYPE_PATCH_PANEL) {
       const validation = validatePatchPanelData(data);
@@ -246,5 +246,5 @@ app.use((error, _req, res, next) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`[prototype] Listening on http://${HOST}:${PORT}`);
+  console.log(`[label-service] Listening on http://${HOST}:${PORT}`);
 });

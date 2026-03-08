@@ -33,7 +33,7 @@ function buildLabelData(input) {
   };
 }
 
-function buildPrototypeZpl(input) {
+function buildI7100Zpl(input) {
   const data = buildLabelData(input);
   const line1 = toSafeZplText(data.line1);
   const line2 = toSafeZplText(data.line2);
@@ -115,6 +115,6 @@ function buildPatchPanelZpl(input) {
 }
 
 module.exports = {
-  buildPrototypeZpl,
+  buildI7100Zpl,
   buildPatchPanelZpl
 };

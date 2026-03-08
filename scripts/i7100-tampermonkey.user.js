@@ -1,12 +1,8 @@
 // ==UserScript==
-// @name         i7100 Label Prototype Button
-// @namespace    https://local.i7100.prototype
-// @version      0.0.3
+// @name         i7100 Label Print Button
+// @namespace    https://local.i7100.label
+// @version      0.1.0
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
-// @homepageURL  https://github.com/asauerteig-equinix/i7100-label-print-prototype
-// @supportURL   https://github.com/asauerteig-equinix/i7100-label-print-prototype/issues
-// @updateURL    https://raw.githubusercontent.com/asauerteig-equinix/i7100-label-print-prototype/main/scripts/i7100-tampermonkey-prototype.user.js
-// @downloadURL  https://raw.githubusercontent.com/asauerteig-equinix/i7100-label-print-prototype/main/scripts/i7100-tampermonkey-prototype.user.js
 // @match        https://jarvis-emea.equinix.com/*
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
@@ -67,7 +63,7 @@
   const SIMULATE_MODE = true;
 
   const CONFIG = {
-    apiUrl: 'http://fr2lxcops01:5100/api/prototype/print',
+    apiUrl: 'http://fr2lxcops01:5100/api/label/print',
     simulate: SIMULATE_MODE,
     primaryPrinterIp: '10.145.162.22',
     fallbackPrinterIp: '10.145.162.32',
@@ -75,13 +71,14 @@
     printerPort: 9100
   };
 
-  const BUTTON_ID = 'i7100-prototype-print-btn';
+  const BUTTON_ID = 'i7100-label-print-btn';
   const PATCH_PANEL_BUTTON_ID = 'i7100-ptp950-print-btn';
   const PATCH_PANEL_LABEL = {
     widthMm: 42,
     heightMm: 9,
     previewScale: 4
   };
+  let connectBatchInFlight = false;
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -179,7 +176,7 @@
       marginBottom: '14px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '8px'
+      gap: '6px'
     });
 
     const createLine = (text, size) => {
@@ -194,9 +191,18 @@
       return line;
     };
 
-    labelContainer.appendChild(createLine(line1, '16px'));
-    labelContainer.appendChild(createLine(line2, '11px'));
-    labelContainer.appendChild(createLine(line3, '11px'));
+    const qrPlaceholder = document.createElement('div');
+    qrPlaceholder.textContent = '[QR Code]';
+    Object.assign(qrPlaceholder.style, {
+      fontSize: '10px',
+      color: '#666',
+      textAlign: 'center',
+      padding: '12px',
+      border: '1px dashed #999'
+    });
+    labelContainer.appendChild(qrPlaceholder);
+
+    labelContainer.appendChild(createLine(line1, '11px'));
 
     const separator = document.createElement('div');
     Object.assign(separator.style, {
@@ -206,16 +212,9 @@
     });
     labelContainer.appendChild(separator);
 
-    const qrPlaceholder = document.createElement('div');
-    qrPlaceholder.textContent = '[QR Code]';
-    Object.assign(qrPlaceholder.style, {
-      fontSize: '10px',
-      color: '#666',
-      textAlign: 'center',
-      padding: '10px',
-      border: '1px dashed #999'
-    });
-    labelContainer.appendChild(qrPlaceholder);
+    labelContainer.appendChild(createLine(line1, '14px'));
+    labelContainer.appendChild(createLine(line2, '11px'));
+    labelContainer.appendChild(createLine(line3, '11px'));
 
     const hint = document.createElement('div');
     hint.textContent = '38.1 x 101.6mm (Druckbereich: 50.8mm)';
@@ -404,16 +403,23 @@
       return Math.max(min, Math.min(max, parsed));
     }
 
+    let previewRequestInFlight = false;
+
     primaryPrint.addEventListener('click', async () => {
       if (typeof onPrimaryPrint !== 'function') {
         overlay.remove();
         return;
       }
+      if (previewRequestInFlight) {
+        return;
+      }
+      previewRequestInFlight = true;
       setPreviewBusy(true);
       try {
         await onPrimaryPrint(getSelectedLabelCount());
       } finally {
         setPreviewBusy(false);
+        previewRequestInFlight = false;
       }
     });
 
@@ -422,11 +428,16 @@
         overlay.remove();
         return;
       }
+      if (previewRequestInFlight) {
+        return;
+      }
+      previewRequestInFlight = true;
       setPreviewBusy(true);
       try {
         await onSecondaryPrint(getSelectedLabelCount());
       } finally {
         setPreviewBusy(false);
+        previewRequestInFlight = false;
       }
     });
 
@@ -712,11 +723,13 @@
     const line3 = portsZ
       ? `${finalZ}:${patchZ.cabinet}:${patchZ.panel}:${portsZ}`
       : `${finalZ}:${patchZ.cabinet}:${patchZ.panel}`;
+    const qrPayload = String(serial).split(';')[0].trim() || serial;
 
     return {
       line1: serial,
       line2,
-      line3
+      line3,
+      qrPayload
     };
   }
 
@@ -795,11 +808,16 @@
     }
 
     async function sendConnectBatch(primaryIp, fallbackIp, labelCount) {
+      if (connectBatchInFlight) {
+        return;
+      }
+
       const count = Math.max(1, Number.parseInt(String(labelCount || 1), 10) || 1);
       let successful = 0;
       let firstFailure = null;
       let lastSuccess = null;
 
+      connectBatchInFlight = true;
       setConnectBusy(button, true);
       try {
         for (let i = 0; i < count; i += 1) {
@@ -812,6 +830,7 @@
           lastSuccess = result;
         }
       } finally {
+        connectBatchInFlight = false;
         setConnectBusy(button, false);
       }
 

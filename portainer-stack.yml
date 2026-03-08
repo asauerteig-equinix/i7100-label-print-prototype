@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  i7100-print-prototype:
-    container_name: i7100-print-prototype
-    image: i7100-print-prototype:local
+  i7100-label-print:
+    container_name: i7100-label-print
+    image: i7100-label-print:local
     restart: unless-stopped
     ports:
       - "5100:5100"

@@ -18,6 +18,25 @@ function sanitizeJScriptText(text) {
     .trim();
 }
 
+function resolveQrPayload(source, line1, line2, line3) {
+  const explicit = normalize(source.qrPayload, '');
+  const fallback = line1 || line2 || line3 || 'NO-DATA';
+  const raw = explicit || fallback;
+  const firstSegment = String(raw).split(';')[0].trim();
+  return firstSegment || 'NO-DATA';
+}
+
+function calcPointSize(text, basePt, minPt, maxCharsAtBase) {
+  const length = String(text ?? '').length;
+  if (!length || length <= maxCharsAtBase) {
+    return basePt;
+  }
+
+  const ratio = maxCharsAtBase / length;
+  const scaled = Math.floor(basePt * ratio);
+  return Math.max(minPt, scaled);
+}
+
 function buildJob(commands) {
   return `${commands.join('\r\n')}\r\n`;
 }
@@ -27,7 +46,7 @@ function buildLabelData(input) {
   const line1 = normalize(source.line1, '');
   const line2 = normalize(source.line2, '');
   const line3 = normalize(source.line3, '');
-  const qrPayload = normalize(source.qrPayload, line2);
+  const qrPayload = resolveQrPayload(source, line1, line2, line3);
 
   return {
     line1,
@@ -37,7 +56,7 @@ function buildLabelData(input) {
   };
 }
 
-function buildPrototypeJScript(input) {
+function buildI7100JScript(input) {
   const data = buildLabelData(input);
 
   const widthMm = 38.1;
@@ -54,17 +73,23 @@ function buildPrototypeJScript(input) {
   const safeLine2 = sanitizeJScriptText(data.line2);
   const safeLine3 = sanitizeJScriptText(data.line3);
   const safeQrPayload = sanitizeJScriptText(data.qrPayload);
+  const safeSerial = safeLine1;
+  const line1Pt = calcPointSize(safeLine1, 14, 8, 18);
+  const line2Pt = calcPointSize(safeLine2, 10, 7, 24);
+  const line3Pt = calcPointSize(safeLine3, 10, 7, 24);
+  const qrModuleSize = 1.3;
 
   // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
   const jscript = buildJob([
     'm m',
     'J',
-    `S l1;0,0,${printAreaHeightMm},${printAreaHeightMm},${widthMm}`,
-    `T 0,3.5,0,5,pt16;${safeLine1}[J:c${widthMm}]`,
-    `T 0,10.5,0,3,pt9;${safeLine2}[J:c${widthMm}]`,
-    `T 0,15.5,0,3,pt9;${safeLine3}[J:c${widthMm}]`,
+    `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
+    `B ${widthMm / 2 - 11},3.2,0,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
+    `T 0,20.2,0,3,pt8;${safeSerial}[J:c${widthMm}]`,
     `G 2,${foldHalfHeightMm},0;L:${widthMm - 4},0.5`,
-    `B ${widthMm / 2 - 8},${foldHalfHeightMm + 2.5},0,QRCODE+ELM+MODEL2+WS1,0.8;${safeQrPayload}`,
+    `T 0,29.2,0,3,pt${line1Pt};${safeLine1}[J:c${widthMm}]`,
+    `T 0,36.2,0,3,pt${line2Pt};${safeLine2}[J:c${widthMm}]`,
+    `T 0,42.8,0,3,pt${line3Pt};${safeLine3}[J:c${widthMm}]`,
     'A 1'
   ]);
 
@@ -119,6 +144,6 @@ function buildPatchPanelJScript(input) {
 }
 
 module.exports = {
-  buildPrototypeJScript,
+  buildI7100JScript,
   buildPatchPanelJScript
 };

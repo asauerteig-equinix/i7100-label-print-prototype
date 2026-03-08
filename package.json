@@ -1,8 +1,8 @@
 {
-  "name": "i7100-label-print-prototype",
+  "name": "i7100-label-print",
   "version": "0.1.0",
   "private": true,
-  "description": "Standalone Brady i7100 print prototype (Tampermonkey + API + optional raw TCP print)",
+  "description": "Standalone Brady i7100 label print service (Tampermonkey + API + optional raw TCP print)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
