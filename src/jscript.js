@@ -87,22 +87,23 @@ function buildI7100JScript(input) {
   const safeSerial = safeLine1;
   const copies = normalizeCopies(data.copies, 1);
   const line1Pt = calcPointSize(safeLine1, 14, 8, 18);
-  const line2Pt = calcPointSize(safeLine2, 8, 6, 30);
-  const line3Pt = calcPointSize(safeLine3, 8, 6, 30);
+  const line2Pt = calcPointSize(safeLine2, 7, 5, 32);
+  const line3Pt = calcPointSize(safeLine3, 7, 5, 32);
   const contentRotation = 0;
   const qrModuleSize = 0.85;
-  const qrX = widthMm / 2 - 8.5;
+  const xOffsetMm = 1.0;
+  const qrX = widthMm / 2 - 8.5 + xOffsetMm;
   const yOffsetMm = -printAreaHeightMm;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
+  const cutLineY = foldLineY + yOffsetMm;
   const qrY = printAreaOffsetYMm + 2.6 + yOffsetMm;
-  const serialUnderQrY = printAreaOffsetYMm + 21.0 + yOffsetMm;
+  const serialUnderQrY = cutLineY - 1.4;
   const textSerialY = foldLineY + 4.4 + yOffsetMm;
   const textLine2Y = foldLineY + 11.1 + yOffsetMm;
   const textLine3Y = foldLineY + 17.4 + yOffsetMm;
-  const cutLineY = foldLineY + yOffsetMm;
   const serialTextPt = Math.max(Math.min(line1Pt, 12), 11);
-  const textLine2Pt = Math.min(line2Pt, 7);
-  const textLine3Pt = Math.min(line3Pt, 7);
+  const textLine2Pt = Math.min(line2Pt, 6);
+  const textLine3Pt = Math.min(line3Pt, 6);
 
   // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
   const jscript = buildJob([
@@ -112,11 +113,11 @@ function buildI7100JScript(input) {
     'O R',
     'C e',
     `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
-    `T 0,${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${widthMm}]`,
-    `G 2,${cutLineY},0;L:${widthMm - 4},0.5`,
-    `T 0,${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
-    `T 0,${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
-    `T 0,${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
+    `T ${xOffsetMm},${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${widthMm}]`,
+    `G ${2 + xOffsetMm},${cutLineY},0;L:${widthMm - 4},0.5`,
+    `T ${xOffsetMm},${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
+    `T ${xOffsetMm},${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
+    `T ${xOffsetMm},${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
     `A ${copies}`
   ]);
 
