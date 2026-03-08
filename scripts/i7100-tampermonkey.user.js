@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.1
+// @version      0.1.11
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
 // @match        https://jarvis-emea.equinix.com/*
 // @grant        GM_xmlhttpRequest
@@ -36,6 +36,7 @@
       attributeLabel: ['.extd-AttributeLbl'],
       attributeValue: ['.extd-AttributeValue'],
       fullPathRows: ['.extd-activityPortGridRow'],
+      fullPathActivityBlocks: ['.extd-activityPortAct'],
       fullPathSideLabel: ['.extd-activityPortSide.fullPath'],
       fullPathSystemName: ['.extd-activityPortSysname h6.extd-activityPortActNumber'],
       patchPanelCode: ['.extd-FullPatchPanCol h6.extd-activityPortActNumber.text-bold'],
@@ -621,6 +622,35 @@
     return match ? match[1] : '';
   }
 
+  function escapeRegExp(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function getFullPathContextRootForSerial(serial) {
+    const needle = String(serial || '').trim();
+    if (!needle) {
+      return null;
+    }
+
+    const blocks = queryAll(USER_CONFIG.selectors.fullPathActivityBlocks);
+    if (!blocks.length) {
+      return null;
+    }
+
+    const strictMatch = new RegExp(`\\b${escapeRegExp(needle)}\\b`, 'i');
+    for (const block of blocks) {
+      const text = String(block.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!text) {
+        continue;
+      }
+      if (strictMatch.test(text)) {
+        return block;
+      }
+    }
+
+    return null;
+  }
+
   function getCurrentIbxCode() {
     const node = queryFirst(USER_CONFIG.selectors.currentIbxValue);
     const raw = node ? node.textContent : '';
@@ -634,8 +664,8 @@
     return match ? match[1] : '';
   }
 
-  function getFullPathRowsMeta() {
-    const rows = queryAll(USER_CONFIG.selectors.fullPathRows);
+  function getFullPathRowsMeta(root = document) {
+    const rows = queryAll(USER_CONFIG.selectors.fullPathRows, root);
     const meta = [];
     for (const row of rows) {
       const sideLabel = queryFirst(USER_CONFIG.selectors.fullPathSideLabel, row);
@@ -673,6 +703,12 @@
     return hit ? hit.row : null;
   }
 
+  function pickRowBySideFromMeta(rowsMeta, sideCandidates) {
+    const candidates = (sideCandidates || []).map((value) => String(value || '').trim().toUpperCase());
+    const hit = (rowsMeta || []).find((entry) => candidates.includes(entry.side));
+    return hit ? hit.row : null;
+  }
+
   function pickFullPathRowForSystem(rowsMeta, targetSystemName, fallbackSideCandidates, preferredSide) {
     const targetKey = trimSystemName(targetSystemName);
     const normalizedPreferredSide = String(preferredSide || '').trim().toUpperCase();
@@ -693,7 +729,7 @@
       }
     }
 
-    return getFullPathRow(fallbackSideCandidates);
+    return pickRowBySideFromMeta(rowsMeta, fallbackSideCandidates) || getFullPathRow(fallbackSideCandidates);
   }
 
   function getFullPathSystemName(row) {
@@ -770,17 +806,21 @@
       return null;
     }
 
+    const contextRoot = getFullPathContextRootForSerial(serial) || document;
+    const rowsMeta = getFullPathRowsMeta(contextRoot);
+    const fallbackRowA = pickRowBySideFromMeta(rowsMeta, USER_CONFIG.labels.sideAValues);
+    const fallbackRowZ = pickRowBySideFromMeta(rowsMeta, USER_CONFIG.labels.sideZValues);
+
     const finalARaw =
       getAttributeValue(USER_CONFIG.labels.finalASystemNameLabels) ||
-      getFullPathSystemName(getFullPathRow(USER_CONFIG.labels.sideAValues));
+      getFullPathSystemName(fallbackRowA || getFullPathRow(USER_CONFIG.labels.sideAValues));
     const finalZRaw =
       getAttributeValue(USER_CONFIG.labels.finalZSystemNameLabels) ||
-      getFullPathSystemName(getFullPathRow(USER_CONFIG.labels.sideZValues));
+      getFullPathSystemName(fallbackRowZ || getFullPathRow(USER_CONFIG.labels.sideZValues));
 
     const finalA = trimSystemName(finalARaw);
     const finalZ = trimSystemName(finalZRaw);
     const serialSuffixSide = getSerialSuffixLetter(serial);
-    const rowsMeta = getFullPathRowsMeta();
     const localIbxCode = getCurrentIbxCode();
     const metroMode = isMetroFullPath(rowsMeta);
 
