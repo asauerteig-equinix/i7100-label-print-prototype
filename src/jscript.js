@@ -92,7 +92,7 @@ function buildI7100JScript(input) {
   const qrModuleSize = 0.85;
   const qrX = widthMm / 2 - 8.5;
   const qrY = printAreaOffsetYMm + 2.4;
-  const serialUnderQrY = printAreaOffsetYMm + 19.5;
+  const serialUnderQrY = foldHalfHeightMm + printAreaOffsetYMm - 2.2;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
   const textTopY = printAreaOffsetYMm + 47.2;
   const serialTextPt = Math.max(line1Pt, 12);
@@ -105,12 +105,12 @@ function buildI7100JScript(input) {
     'J',
     `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
     ...(copies > 1 ? ['C e'] : []),
-    `B ${qrX},${qrY},0,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
-    `T 0,${serialUnderQrY},0,3,pt8;${safeSerial}[J:c${widthMm}]`,
+    `B ${qrX},${qrY},2,QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
+    `T 0,${serialUnderQrY},2,3,pt8;${safeSerial}[J:c${widthMm}]`,
     `G 2,${foldLineY},0;L:${widthMm - 4},0.5`,
-    `T 0,${textTopY},2,3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
+    `T 0,${textTopY},2,3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
     `T 0,${textTopY - 7},2,3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
-    `T 0,${textTopY - 13},2,3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
+    `T 0,${textTopY - 13},2,3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
     `A ${copies}`
   ]);
 
