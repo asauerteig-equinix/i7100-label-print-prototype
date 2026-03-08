@@ -92,12 +92,14 @@ function buildI7100JScript(input) {
   const contentRotation = 0;
   const qrModuleSize = 0.85;
   const qrX = widthMm / 2 - 8.5;
+  const yOffsetMm = -printAreaHeightMm;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
-  const textSerialY = printAreaOffsetYMm + 4.4;
-  const textLine2Y = printAreaOffsetYMm + 11.1;
-  const textLine3Y = printAreaOffsetYMm + 17.4;
-  const qrY = foldLineY + 2.6;
-  const serialUnderQrY = foldLineY + 21.0;
+  const qrY = printAreaOffsetYMm + 2.6 + yOffsetMm;
+  const serialUnderQrY = printAreaOffsetYMm + 21.0 + yOffsetMm;
+  const textSerialY = foldLineY + 4.4 + yOffsetMm;
+  const textLine2Y = foldLineY + 11.1 + yOffsetMm;
+  const textLine3Y = foldLineY + 17.4 + yOffsetMm;
+  const cutLineY = foldLineY + yOffsetMm;
   const serialTextPt = Math.max(Math.min(line1Pt, 12), 11);
   const textLine2Pt = Math.min(line2Pt, 7);
   const textLine3Pt = Math.min(line3Pt, 7);
@@ -111,7 +113,7 @@ function buildI7100JScript(input) {
     'C e',
     `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
     `T 0,${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${widthMm}]`,
-    `G 2,${foldLineY},0;L:${widthMm - 4},0.5`,
+    `G 2,${cutLineY},0;L:${widthMm - 4},0.5`,
     `T 0,${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${widthMm}]`,
     `T 0,${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${widthMm}]`,
     `T 0,${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${widthMm}]`,
