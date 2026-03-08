@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.0
+// @version      0.1.1
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
 // @match        https://jarvis-emea.equinix.com/*
 // @grant        GM_xmlhttpRequest
@@ -27,6 +27,7 @@
       patchPanelKeywords: ['patch panel']
     },
     selectors: {
+      currentIbxValue: ['.ttFrameIBX'],
       serialNumberValue: ['.SHSerialNum'],
       serialFieldContainer: ['.ttFrameFieldItem.CopyBtnSH'],
       serialFieldLabel: ['label'],
@@ -615,6 +616,86 @@
     return null;
   }
 
+  function getSerialSuffixLetter(serial) {
+    const match = String(serial || '').trim().toUpperCase().match(/-([A-Z])$/);
+    return match ? match[1] : '';
+  }
+
+  function getCurrentIbxCode() {
+    const node = queryFirst(USER_CONFIG.selectors.currentIbxValue);
+    const raw = node ? node.textContent : '';
+    const match = String(raw || '').trim().toUpperCase().match(/^([A-Z]{2}\d+[A-Z]*)/);
+    return match ? match[1] : '';
+  }
+
+  function getSystemIbxCode(systemName) {
+    const first = String(systemName || '').split(':')[0] || '';
+    const match = String(first).trim().toUpperCase().match(/^([A-Z]{2}\d+[A-Z]*)/);
+    return match ? match[1] : '';
+  }
+
+  function getFullPathRowsMeta() {
+    const rows = queryAll(USER_CONFIG.selectors.fullPathRows);
+    const meta = [];
+    for (const row of rows) {
+      const sideLabel = queryFirst(USER_CONFIG.selectors.fullPathSideLabel, row);
+      const rawSide = sideLabel ? sideLabel.textContent : '';
+      const side = String(rawSide || '').trim().toUpperCase();
+      const systemName = getFullPathSystemName(row);
+      meta.push({
+        row,
+        side,
+        systemName,
+        systemKey: trimSystemName(systemName),
+        ibxCode: getSystemIbxCode(systemName)
+      });
+    }
+    return meta;
+  }
+
+  function isMetroFullPath(rowsMeta) {
+    if (!Array.isArray(rowsMeta) || rowsMeta.length === 0) {
+      return false;
+    }
+    if (rowsMeta.length > 2) {
+      return true;
+    }
+    return rowsMeta.some((entry) => entry.side && entry.side !== 'A' && entry.side !== 'Z');
+  }
+
+  function pickLocalIbxSideRow(rowsMeta, localIbxCode, sideLetter) {
+    const ibx = String(localIbxCode || '').trim().toUpperCase();
+    const side = String(sideLetter || '').trim().toUpperCase();
+    if (!ibx || !side) {
+      return null;
+    }
+    const hit = rowsMeta.find((entry) => entry.ibxCode === ibx && entry.side === side);
+    return hit ? hit.row : null;
+  }
+
+  function pickFullPathRowForSystem(rowsMeta, targetSystemName, fallbackSideCandidates, preferredSide) {
+    const targetKey = trimSystemName(targetSystemName);
+    const normalizedPreferredSide = String(preferredSide || '').trim().toUpperCase();
+
+    if (targetKey) {
+      const bySystem = rowsMeta.filter((entry) => entry.systemKey === targetKey);
+      if (bySystem.length === 1) {
+        return bySystem[0].row;
+      }
+      if (bySystem.length > 1 && normalizedPreferredSide) {
+        const preferred = bySystem.find((entry) => entry.side === normalizedPreferredSide);
+        if (preferred) {
+          return preferred.row;
+        }
+      }
+      if (bySystem.length > 0) {
+        return bySystem[0].row;
+      }
+    }
+
+    return getFullPathRow(fallbackSideCandidates);
+  }
+
   function getFullPathSystemName(row) {
     if (!row) {
       return '';
@@ -698,9 +779,32 @@
 
     const finalA = trimSystemName(finalARaw);
     const finalZ = trimSystemName(finalZRaw);
+    const serialSuffixSide = getSerialSuffixLetter(serial);
+    const rowsMeta = getFullPathRowsMeta();
+    const localIbxCode = getCurrentIbxCode();
+    const metroMode = isMetroFullPath(rowsMeta);
 
-    const rowA = getFullPathRow(USER_CONFIG.labels.sideAValues);
-    const rowZ = getFullPathRow(USER_CONFIG.labels.sideZValues);
+    let rowA = pickFullPathRowForSystem(
+      rowsMeta,
+      finalA,
+      USER_CONFIG.labels.sideAValues,
+      serialSuffixSide
+    );
+    let rowZ = pickFullPathRowForSystem(
+      rowsMeta,
+      finalZ,
+      USER_CONFIG.labels.sideZValues,
+      serialSuffixSide
+    );
+
+    if (metroMode && localIbxCode) {
+      const localRowA = pickLocalIbxSideRow(rowsMeta, localIbxCode, 'A');
+      const localRowZ = pickLocalIbxSideRow(rowsMeta, localIbxCode, 'Z');
+      if (localRowA && localRowZ) {
+        rowA = localRowA;
+        rowZ = localRowZ;
+      }
+    }
 
     const patchA = splitPatchPanel(getPatchPanelCode(rowA));
     const patchZ = splitPatchPanel(getPatchPanelCode(rowZ));
