@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.11
+// @version      0.1.12
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
 // @match        https://jarvis-emea.equinix.com/*
 // @grant        GM_xmlhttpRequest
@@ -859,14 +859,17 @@
       return null;
     }
 
+    const finalAResolved = trimSystemName(getFullPathSystemName(rowA) || finalARaw);
+    const finalZResolved = trimSystemName(getFullPathSystemName(rowZ) || finalZRaw);
+
     const portsA = formatPorts(portA, portB);
     const portsZ = formatPorts(portZ, portZb);
     const line2 = portsA
-      ? `${finalA}:${patchA.cabinet}:${patchA.panel}:${portsA}`
-      : `${finalA}:${patchA.cabinet}:${patchA.panel}`;
+      ? `${finalAResolved}:${patchA.cabinet}:${patchA.panel}:${portsA}`
+      : `${finalAResolved}:${patchA.cabinet}:${patchA.panel}`;
     const line3 = portsZ
-      ? `${finalZ}:${patchZ.cabinet}:${patchZ.panel}:${portsZ}`
-      : `${finalZ}:${patchZ.cabinet}:${patchZ.panel}`;
+      ? `${finalZResolved}:${patchZ.cabinet}:${patchZ.panel}:${portsZ}`
+      : `${finalZResolved}:${patchZ.cabinet}:${patchZ.panel}`;
     const qrPayload = String(serial).split(';')[0].trim() || serial;
 
     return {
