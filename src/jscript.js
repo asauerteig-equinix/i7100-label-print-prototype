@@ -91,7 +91,7 @@ function buildI7100JScript(input) {
   const line3Pt = calcPointSize(safeLine3, 7, 5, 32);
   const contentRotation = 0;
   const qrModuleSize = 0.85;
-  const xOffsetMm = 2.0;
+  const xOffsetMm = 3.0;
   const qrX = widthMm / 2 - 8.5 + xOffsetMm;
   const yOffsetMm = -printAreaHeightMm;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
