@@ -26,6 +26,42 @@ function sanitizeJScriptText(text) {
     .trim();
 }
 
+function splitLegacyConnectLine(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return { system: '', detail: '' };
+  }
+
+  const parts = text.split(':').map((part) => part.trim()).filter(Boolean);
+  if (parts.length <= 3) {
+    return { system: text, detail: '' };
+  }
+
+  const system = parts.slice(0, 3).join(':');
+  const tail = parts.slice(3).join(':');
+  return {
+    system,
+    detail: tail ? `PP:${tail}` : ''
+  };
+}
+
+function buildDashedLineCommands(startX, y, totalLength, dashLength = 1.2, gapLength = 0.9, lineWidth = 0.2) {
+  const commands = [];
+  const maxX = startX + totalLength;
+  let currentX = startX;
+
+  while (currentX < maxX) {
+    const remaining = maxX - currentX;
+    const segment = Math.min(dashLength, remaining);
+    if (segment > 0) {
+      commands.push(`G ${currentX.toFixed(2)},${y},0;L:${segment.toFixed(2)},${lineWidth}`);
+    }
+    currentX += dashLength + gapLength;
+  }
+
+  return commands;
+}
+
 function resolveQrPayload(source, line1, line2, line3) {
   const explicit = normalize(source.qrPayload, '');
   const fallback = line1 || line2 || line3 || 'NO-DATA';
@@ -54,6 +90,12 @@ function buildLabelData(input) {
   const line1 = normalize(source.line1, '');
   const line2 = normalize(source.line2, '');
   const line3 = normalize(source.line3, '');
+  const line2aRaw = normalize(source.line2a, '');
+  const line2bRaw = normalize(source.line2b, '');
+  const line3aRaw = normalize(source.line3a, '');
+  const line3bRaw = normalize(source.line3b, '');
+  const parsedLine2 = splitLegacyConnectLine(line2);
+  const parsedLine3 = splitLegacyConnectLine(line3);
   const qrPayload = resolveQrPayload(source, line1, line2, line3);
   const copies = normalizeCopies(source.copies, 1);
 
@@ -61,6 +103,10 @@ function buildLabelData(input) {
     line1,
     line2,
     line3,
+    line2a: line2aRaw || parsedLine2.system,
+    line2b: line2bRaw || parsedLine2.detail,
+    line3a: line3aRaw || parsedLine3.system,
+    line3b: line3bRaw || parsedLine3.detail,
     qrPayload,
     copies
   };
@@ -81,14 +127,18 @@ function buildI7100JScript(input) {
   const halfAreaDots = Math.floor(printAreaDots / 2);
 
   const safeLine1 = sanitizeJScriptText(data.line1);
-  const safeLine2 = sanitizeJScriptText(data.line2);
-  const safeLine3 = sanitizeJScriptText(data.line3);
+  const safeLine2a = sanitizeJScriptText(data.line2a);
+  const safeLine2b = sanitizeJScriptText(data.line2b);
+  const safeLine3a = sanitizeJScriptText(data.line3a);
+  const safeLine3b = sanitizeJScriptText(data.line3b);
   const safeQrPayload = sanitizeJScriptText(data.qrPayload);
   const safeSerial = safeLine1;
   const copies = normalizeCopies(data.copies, 1);
   const line1Pt = calcPointSize(safeLine1, 14, 8, 18);
-  const line2Pt = calcPointSize(safeLine2, 7, 5, 32);
-  const line3Pt = calcPointSize(safeLine3, 7, 5, 32);
+  const line2aPt = calcPointSize(safeLine2a, 8, 6, 18);
+  const line2bPt = calcPointSize(safeLine2b, 8, 6, 24);
+  const line3aPt = calcPointSize(safeLine3a, 8, 6, 18);
+  const line3bPt = calcPointSize(safeLine3b, 8, 6, 24);
   const contentRotation = 0;
   const qrModuleSize = 0.85;
   const xOffsetMm = 2.0;
@@ -99,12 +149,19 @@ function buildI7100JScript(input) {
   const cutLineY = foldLineY + yOffsetMm;
   const qrY = printAreaOffsetYMm + 2.6 + yOffsetMm;
   const serialUnderQrY = cutLineY - 1.4;
-  const textSerialY = foldLineY + 4.4 + yOffsetMm;
-  const textLine2Y = foldLineY + 11.1 + yOffsetMm;
-  const textLine3Y = foldLineY + 17.4 + yOffsetMm;
-  const serialTextPt = Math.max(Math.min(line1Pt, 12), 11);
-  const textLine2Pt = Math.min(line2Pt, 6);
-  const textLine3Pt = Math.min(line3Pt, 6);
+  const textSerialY = foldLineY + 2.8 + yOffsetMm;
+  const textLine2aY = foldLineY + 7.8 + yOffsetMm;
+  const textLine2bY = foldLineY + 12.3 + yOffsetMm;
+  const textLine3aY = foldLineY + 18.4 + yOffsetMm;
+  const textLine3bY = foldLineY + 22.8 + yOffsetMm;
+  const serialTextPt = Math.max(Math.min(line1Pt, 11), 10);
+  const textLine2aPt = Math.min(line2aPt, 8);
+  const textLine2bPt = Math.min(line2bPt, 8);
+  const textLine3aPt = Math.min(line3aPt, 8);
+  const textLine3bPt = Math.min(line3bPt, 8);
+  const cutLineStartX = 2 + xOffsetMm;
+  const cutLineLength = usableWidthMm - 4;
+  const cutLineCommands = buildDashedLineCommands(cutLineStartX, cutLineY, cutLineLength);
 
   // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
   const jscript = buildJob([
@@ -115,10 +172,12 @@ function buildI7100JScript(input) {
     'C e',
     `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
     `T ${xOffsetMm},${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${usableWidthMm}]`,
-    `G ${2 + xOffsetMm},${cutLineY},0;L:${usableWidthMm - 4},0.5`,
+    ...cutLineCommands,
     `T ${xOffsetMm},${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${usableWidthMm}]`,
-    `T ${xOffsetMm},${textLine2Y},${contentRotation},3,pt${textLine2Pt};${safeLine2}[J:c${usableWidthMm}]`,
-    `T ${xOffsetMm},${textLine3Y},${contentRotation},3,pt${textLine3Pt};${safeLine3}[J:c${usableWidthMm}]`,
+    `T ${xOffsetMm},${textLine2aY},${contentRotation},3,pt${textLine2aPt};${safeLine2a}[J:c${usableWidthMm}]`,
+    `T ${xOffsetMm},${textLine2bY},${contentRotation},3,pt${textLine2bPt};${safeLine2b}[J:c${usableWidthMm}]`,
+    `T ${xOffsetMm},${textLine3aY},${contentRotation},3,pt${textLine3aPt};${safeLine3a}[J:c${usableWidthMm}]`,
+    `T ${xOffsetMm},${textLine3bY},${contentRotation},3,pt${textLine3bPt};${safeLine3b}[J:c${usableWidthMm}]`,
     `A ${copies}`
   ]);
 

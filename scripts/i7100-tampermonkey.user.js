@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.12
+// @version      0.1.13
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
 // @match        https://jarvis-emea.equinix.com/*
 // @grant        GM_xmlhttpRequest
@@ -131,7 +131,12 @@
     window.alert(msg);
   }
 
-  function showConnectLabelPreview(line1, line2, line3, onPrimaryPrint, onSecondaryPrint) {
+  function showConnectLabelPreview(data, onPrimaryPrint, onSecondaryPrint) {
+    const line1 = String(data?.line1 || '').trim();
+    const line2a = String(data?.line2a || data?.line2 || '').trim();
+    const line2b = String(data?.line2b || '').trim();
+    const line3a = String(data?.line3a || data?.line3 || '').trim();
+    const line3b = String(data?.line3b || '').trim();
     const existing = document.getElementById('i7100-connect-label-preview');
     if (existing) {
       existing.remove();
@@ -215,8 +220,17 @@
     labelContainer.appendChild(separator);
 
     labelContainer.appendChild(createLine(line1, '14px'));
-    labelContainer.appendChild(createLine(line2, '11px'));
-    labelContainer.appendChild(createLine(line3, '11px'));
+    labelContainer.appendChild(createLine(line2a, '11px'));
+    labelContainer.appendChild(createLine(line2b, '11px'));
+
+    const spacer = document.createElement('div');
+    Object.assign(spacer.style, {
+      height: '6px'
+    });
+    labelContainer.appendChild(spacer);
+
+    labelContainer.appendChild(createLine(line3a, '11px'));
+    labelContainer.appendChild(createLine(line3b, '11px'));
 
     const hint = document.createElement('div');
     hint.textContent = '38.1 x 101.6mm (Druckbereich: 50.8mm)';
@@ -799,6 +813,17 @@
     };
   }
 
+  function ensurePPPrefix(text) {
+    const value = String(text || '').trim();
+    if (!value) {
+      return '';
+    }
+    if (/^PP:/i.test(value)) {
+      return value.replace(/^PP:/i, 'PP:');
+    }
+    return `PP:${value}`;
+  }
+
   function buildConnectLabelData() {
     const serial = getSerialNumber();
     if (!serial) {
@@ -870,12 +895,20 @@
     const line3 = portsZ
       ? `${finalZResolved}:${patchZ.cabinet}:${patchZ.panel}:${portsZ}`
       : `${finalZResolved}:${patchZ.cabinet}:${patchZ.panel}`;
+    const line2a = finalAResolved;
+    const line2b = ensurePPPrefix(portsA ? `${patchA.cabinet}:${patchA.panel}:${portsA}` : `${patchA.cabinet}:${patchA.panel}`);
+    const line3a = finalZResolved;
+    const line3b = ensurePPPrefix(portsZ ? `${patchZ.cabinet}:${patchZ.panel}:${portsZ}` : `${patchZ.cabinet}:${patchZ.panel}`);
     const qrPayload = String(serial).split(';')[0].trim() || serial;
 
     return {
       line1: serial,
       line2,
       line3,
+      line2a,
+      line2b,
+      line3a,
+      line3b,
       qrPayload
     };
   }
@@ -986,9 +1019,7 @@
     }
 
     showConnectLabelPreview(
-      data.line1,
-      data.line2,
-      data.line3,
+      data,
       (labelCount) => sendConnectBatch(CONFIG.primaryPrinterIp, CONFIG.fallbackPrinterIp, labelCount),
       (labelCount) => sendConnectBatch(CONFIG.fallbackPrinterIp, CONFIG.fallbackPrinterIp, labelCount)
     );
