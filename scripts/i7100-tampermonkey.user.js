@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.13
+// @version      0.1.14
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
 // @match        https://jarvis-emea.equinix.com/*
+// @downloadURL  http://fr2lxcops01.corp.equinix.com:5100/scripts/i7100-tampermonkey.user.js
+// @updateURL    http://fr2lxcops01.corp.equinix.com:5100/scripts/i7100-tampermonkey.user.js
 // @grant        GM_xmlhttpRequest
 // @connect      127.0.0.1
 // @connect      localhost

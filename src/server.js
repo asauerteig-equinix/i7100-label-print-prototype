@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { buildI7100JScript } = require('./jscript');
 const { buildPatchPanelEscp } = require('./ptouch');
 const { sendWithFallback } = require('./printerClient');
@@ -105,6 +106,7 @@ function validatePatchPanelData(data) {
 app.disable('x-powered-by');
 app.use(cors({ origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN }));
 app.use(express.json({ limit: '256kb' }));
+app.use('/scripts', express.static(path.resolve(__dirname, '..', 'scripts')));
 
 app.get('/health', (_req, res) => {
   res.json({
