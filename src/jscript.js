@@ -149,19 +149,25 @@ function buildI7100JScript(input) {
   const cutLineY = foldLineY + yOffsetMm;
   const qrY = printAreaOffsetYMm + 2.6 + yOffsetMm;
   const serialUnderQrY = cutLineY - 1.4;
-  const textSerialY = foldLineY + 2.8 + yOffsetMm;
-  const textLine2aY = foldLineY + 7.8 + yOffsetMm;
-  const textLine2bY = foldLineY + 12.3 + yOffsetMm;
-  const textLine3aY = foldLineY + 18.4 + yOffsetMm;
-  const textLine3bY = foldLineY + 22.8 + yOffsetMm;
+  const textBlockYOffset = 1.0;
+  const textSerialY = foldLineY + 2.8 + yOffsetMm + textBlockYOffset;
+  const textLine2aY = foldLineY + 7.8 + yOffsetMm + textBlockYOffset;
+  const textLine2bY = foldLineY + 11.4 + yOffsetMm + textBlockYOffset;
+  const textLine3aY = foldLineY + 17.8 + yOffsetMm + textBlockYOffset;
+  const textLine3bY = foldLineY + 21.4 + yOffsetMm + textBlockYOffset;
   const serialTextPt = Math.max(Math.min(line1Pt, 11), 10);
   const textLine2aPt = Math.min(line2aPt, 8);
-  const textLine2bPt = Math.min(line2bPt, 8);
+  const detailLineOverflowThreshold = 23;
+  const detailLineLegacyPt = 6;
+  const textLine2bPt =
+    safeLine2b.length > detailLineOverflowThreshold ? detailLineLegacyPt : Math.min(line2bPt, 8);
   const textLine3aPt = Math.min(line3aPt, 8);
-  const textLine3bPt = Math.min(line3bPt, 8);
+  const textLine3bPt =
+    safeLine3b.length > detailLineOverflowThreshold ? detailLineLegacyPt : Math.min(line3bPt, 8);
   const cutLineStartX = 2 + xOffsetMm;
   const cutLineLength = usableWidthMm - 4;
-  const cutLineCommands = buildDashedLineCommands(cutLineStartX, cutLineY, cutLineLength);
+  const cutLineYOffset = 1.2;
+  const cutLineCommands = buildDashedLineCommands(cutLineStartX, cutLineY + cutLineYOffset, cutLineLength);
 
   // The cab printer expects its line-oriented JScript command set, not JavaScript-like function calls.
   const jscript = buildJob([
