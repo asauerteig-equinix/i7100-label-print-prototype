@@ -6,5 +6,4 @@ npm-debug.log*
 .vscode
 memories
 *.md
-scripts
 examples
