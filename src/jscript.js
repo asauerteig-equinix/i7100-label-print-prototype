@@ -149,7 +149,7 @@ function buildI7100JScript(input) {
   const cutLineY = foldLineY + yOffsetMm;
   const qrY = printAreaOffsetYMm + 2.6 + yOffsetMm;
   const serialUnderQrY = cutLineY - 1.4;
-  const textBlockYOffset = 1.0;
+  const textBlockYOffset = 2.0;
   const textSerialY = foldLineY + 2.8 + yOffsetMm + textBlockYOffset;
   const textLine2aY = foldLineY + 7.8 + yOffsetMm + textBlockYOffset;
   const textLine2bY = foldLineY + 11.4 + yOffsetMm + textBlockYOffset;
