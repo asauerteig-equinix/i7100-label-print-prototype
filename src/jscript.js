@@ -1,5 +1,6 @@
 const MM_PER_INCH = 25.4;
 const DEFAULT_DPI = 300;
+const DEFAULT_HARDWARE_X_ORIGIN_MM = 2.5;
 
 function mmToDots(mm, dpi = DEFAULT_DPI) {
   return Math.round((Number(mm) / MM_PER_INCH) * Number(dpi));
@@ -16,6 +17,15 @@ function normalizeCopies(value, fallback = 1) {
     return fallback;
   }
   return Math.min(parsed, 500);
+}
+
+function normalizeMillimeters(value, fallback = 0) {
+  const raw = String(value ?? fallback).trim().replace(',', '.');
+  const parsed = Number.parseFloat(raw);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return parsed;
 }
 
 function sanitizeJScriptText(text) {
@@ -85,6 +95,13 @@ function buildJob(commands) {
   return `${commands.join('\r\n')}\r\n`;
 }
 
+function resolveHardwareXOriginMm() {
+  return normalizeMillimeters(
+    process.env.HARDWARE_X_ORIGIN_MM,
+    DEFAULT_HARDWARE_X_ORIGIN_MM
+  );
+}
+
 function buildLabelData(input) {
   const source = input && typeof input === 'object' ? input : {};
   const line1 = normalize(source.line1, '');
@@ -117,6 +134,7 @@ function buildI7100JScript(input) {
 
   const widthMm = 38.1;
   const heightMm = 101.6;
+  const hardwareXOriginMm = resolveHardwareXOriginMm();
   const printAreaHeightMm = 50.8;
   const foldHalfHeightMm = 25.4;
   const printAreaOffsetYMm = heightMm - printAreaHeightMm;
@@ -141,9 +159,9 @@ function buildI7100JScript(input) {
   const line3bPt = calcPointSize(safeLine3b, 8, 6, 24);
   const contentRotation = 0;
   const qrModuleSize = 0.85;
-  const xOffsetMm = 2.0;
-  const usableWidthMm = widthMm - xOffsetMm;
-  const qrX = usableWidthMm / 2 - 8.5 + xOffsetMm;
+  const contentStartXMm = 0;
+  const usableWidthMm = widthMm;
+  const qrX = usableWidthMm / 2 - 8.5;
   const yOffsetMm = -printAreaHeightMm;
   const foldLineY = printAreaOffsetYMm + foldHalfHeightMm;
   const cutLineY = foldLineY + yOffsetMm;
@@ -164,7 +182,7 @@ function buildI7100JScript(input) {
   const textLine3aPt = Math.min(line3aPt, 8);
   const textLine3bPt =
     safeLine3b.length > detailLineOverflowThreshold ? detailLineLegacyPt : Math.min(line3bPt, 8);
-  const cutLineStartX = 2 + xOffsetMm;
+  const cutLineStartX = 2;
   const cutLineLength = usableWidthMm - 4;
   const cutLineYOffset = 1.2;
   const cutLineCommands = buildDashedLineCommands(cutLineStartX, cutLineY + cutLineYOffset, cutLineLength);
@@ -173,17 +191,17 @@ function buildI7100JScript(input) {
   const jscript = buildJob([
     'm m',
     'J',
-    `S l1;0,0,${heightMm},${heightMm},${widthMm}`,
+    `S l1;${hardwareXOriginMm.toFixed(2)},0,${heightMm},${heightMm},${widthMm}`,
     'O R',
     'C e',
     `B ${qrX},${qrY},${contentRotation},QRCODE+MODEL2+WS1,${qrModuleSize};${safeQrPayload}`,
-    `T ${xOffsetMm},${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${usableWidthMm}]`,
+    `T ${contentStartXMm},${serialUnderQrY},${contentRotation},3,pt8;${safeSerial}[J:c${usableWidthMm}]`,
     ...cutLineCommands,
-    `T ${xOffsetMm},${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${usableWidthMm}]`,
-    `T ${xOffsetMm},${textLine2aY},${contentRotation},3,pt${textLine2aPt};${safeLine2a}[J:c${usableWidthMm}]`,
-    `T ${xOffsetMm},${textLine2bY},${contentRotation},3,pt${textLine2bPt};${safeLine2b}[J:c${usableWidthMm}]`,
-    `T ${xOffsetMm},${textLine3aY},${contentRotation},3,pt${textLine3aPt};${safeLine3a}[J:c${usableWidthMm}]`,
-    `T ${xOffsetMm},${textLine3bY},${contentRotation},3,pt${textLine3bPt};${safeLine3b}[J:c${usableWidthMm}]`,
+    `T ${contentStartXMm},${textSerialY},${contentRotation},3,pt${serialTextPt};${safeLine1}[J:c${usableWidthMm}]`,
+    `T ${contentStartXMm},${textLine2aY},${contentRotation},3,pt${textLine2aPt};${safeLine2a}[J:c${usableWidthMm}]`,
+    `T ${contentStartXMm},${textLine2bY},${contentRotation},3,pt${textLine2bPt};${safeLine2b}[J:c${usableWidthMm}]`,
+    `T ${contentStartXMm},${textLine3aY},${contentRotation},3,pt${textLine3aPt};${safeLine3a}[J:c${usableWidthMm}]`,
+    `T ${contentStartXMm},${textLine3bY},${contentRotation},3,pt${textLine3bPt};${safeLine3b}[J:c${usableWidthMm}]`,
     `A ${copies}`
   ]);
 
@@ -193,6 +211,7 @@ function buildI7100JScript(input) {
     layout: {
       widthMm,
       heightMm,
+      hardwareXOriginMm,
       printAreaHeightMm,
       foldHalfHeightMm,
       widthDots,

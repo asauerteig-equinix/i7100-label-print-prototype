@@ -23,6 +23,10 @@ Lokaler Label-Druckdienst fuer:
 1. `npm install`
 2. `npm start`
 
+Optional fuer Brady i7100 X-Feintuning:
+- `HARDWARE_X_ORIGIN_MM=2.5` ist der Default fuer die globale Links/Rechts-Korrektur.
+- Bei Feintuning in `0.5`-mm-Schritten anpassen.
+
 ## Test (PowerShell)
 Simulation:
 `Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:5100/api/label/print" -ContentType "application/json" -InFile ".\examples\request.simulate.json"`
