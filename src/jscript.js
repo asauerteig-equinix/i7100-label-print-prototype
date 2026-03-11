@@ -36,6 +36,21 @@ function sanitizeJScriptText(text) {
     .trim();
 }
 
+function ensurePanelPrefix(text, fallbackPrefix = 'PP') {
+  const value = String(text || '').trim();
+  if (!value) {
+    return '';
+  }
+
+  const existingPrefix = value.match(/^([A-Za-z]{2,}):(.*)$/);
+  if (existingPrefix) {
+    return `${existingPrefix[1].toUpperCase()}:${existingPrefix[2].trim()}`;
+  }
+
+  const normalizedPrefix = String(fallbackPrefix || '').trim().toUpperCase() || 'PP';
+  return `${normalizedPrefix}:${value}`;
+}
+
 function splitLegacyConnectLine(value) {
   const text = String(value || '').trim();
   if (!text) {
@@ -51,7 +66,7 @@ function splitLegacyConnectLine(value) {
   const tail = parts.slice(3).join(':');
   return {
     system,
-    detail: tail ? `PP:${tail}` : ''
+    detail: tail ? ensurePanelPrefix(tail) : ''
   };
 }
 

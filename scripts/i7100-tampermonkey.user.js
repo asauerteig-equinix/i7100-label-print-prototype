@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.14
+// @version      0.1.16
 // @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
 // @match        https://jarvis-emea.equinix.com/*
 // @downloadURL  http://fr2lxcops01.corp.equinix.com:5100/scripts/i7100-tampermonkey.user.js
@@ -808,22 +808,46 @@
   }
 
   function splitPatchPanel(value) {
-    const parts = String(value || '').split(':').map((part) => part.trim());
+    const raw = String(value || '').trim();
+    if (!raw) {
+      return {
+        prefix: '',
+        cabinet: '',
+        panel: ''
+      };
+    }
+
+    const compact = raw.replace(/\s*:\s*/g, ':').trim();
+    const prefixMatch = compact.match(/^([A-Za-z]{2,}):(.*)$/);
+    const prefix = prefixMatch ? prefixMatch[1].toUpperCase() : '';
+    const payload = prefixMatch ? prefixMatch[2].trim() : compact;
+    const match = payload.match(/^(.*?):([^:]+)$/);
+    if (!match) {
+      return {
+        prefix,
+        cabinet: payload,
+        panel: ''
+      };
+    }
+
     return {
-      cabinet: parts[1] || '',
-      panel: parts[2] || ''
+      prefix,
+      cabinet: match[1].trim(),
+      panel: match[2].trim()
     };
   }
 
-  function ensurePPPrefix(text) {
+  function ensurePanelPrefix(text, fallbackPrefix = 'PP') {
     const value = String(text || '').trim();
     if (!value) {
       return '';
     }
-    if (/^PP:/i.test(value)) {
-      return value.replace(/^PP:/i, 'PP:');
+    const normalizedPrefix = String(fallbackPrefix || '').trim().toUpperCase() || 'PP';
+    const existingPrefix = value.match(/^([A-Za-z]{2,}):(.*)$/);
+    if (existingPrefix) {
+      return `${existingPrefix[1].toUpperCase()}:${existingPrefix[2].trim()}`;
     }
-    return `PP:${value}`;
+    return `${normalizedPrefix}:${value}`;
   }
 
   function buildConnectLabelData() {
@@ -898,9 +922,15 @@
       ? `${finalZResolved}:${patchZ.cabinet}:${patchZ.panel}:${portsZ}`
       : `${finalZResolved}:${patchZ.cabinet}:${patchZ.panel}`;
     const line2a = finalAResolved;
-    const line2b = ensurePPPrefix(portsA ? `${patchA.cabinet}:${patchA.panel}:${portsA}` : `${patchA.cabinet}:${patchA.panel}`);
+    const line2b = ensurePanelPrefix(
+      portsA ? `${patchA.cabinet}:${patchA.panel}:${portsA}` : `${patchA.cabinet}:${patchA.panel}`,
+      patchA.prefix
+    );
     const line3a = finalZResolved;
-    const line3b = ensurePPPrefix(portsZ ? `${patchZ.cabinet}:${patchZ.panel}:${portsZ}` : `${patchZ.cabinet}:${patchZ.panel}`);
+    const line3b = ensurePanelPrefix(
+      portsZ ? `${patchZ.cabinet}:${patchZ.panel}:${portsZ}` : `${patchZ.cabinet}:${patchZ.panel}`,
+      patchZ.prefix
+    );
     const qrPayload = String(serial).split(';')[0].trim() || serial;
 
     return {
