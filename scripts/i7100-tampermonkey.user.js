@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         i7100 Label Print Button
 // @namespace    https://local.i7100.label
-// @version      0.1.16
-// @description  Adds different Buttons to Jarvis NCC and PP activity pages to print labels via local API 
+// @version      0.1.17
+// @description  Adds different buttons to Jarvis activity pages for label printing and audit creation
 // @match        https://jarvis-emea.equinix.com/*
 // @downloadURL  http://fr2lxcops01.corp.equinix.com:5100/scripts/i7100-tampermonkey.user.js
 // @updateURL    http://fr2lxcops01.corp.equinix.com:5100/scripts/i7100-tampermonkey.user.js
@@ -10,6 +10,7 @@
 // @connect      127.0.0.1
 // @connect      localhost
 // @connect      fr2lxcops01
+// @connect      fr2lxcops01.corp.equinix.com
 // ==/UserScript==
 
 (function () {
@@ -26,7 +27,8 @@
       allowedHostPatterns: [/jarvis-emea\.equinix\.com$/i],
       pageTitleSelector: '.ttFrameTitleTxt',
       connectKeywords: ['connect'],
-      patchPanelKeywords: ['patch panel']
+      patchPanelKeywords: ['patch panel'],
+      physicalAuditKeywords: ['physical audit']
     },
     selectors: {
       currentIbxValue: ['.ttFrameIBX'],
@@ -44,7 +46,58 @@
       patchPanelCode: ['.extd-FullPatchPanCol h6.extd-activityPortActNumber.text-bold'],
       portsGroup: ['.extd-portsAB-FullPath'],
       portLabel: ['.lbl'],
-      portValue: ['h6.extd-activityPortActNumber']
+      portValue: ['h6.extd-activityPortActNumber'],
+      labeledFieldContainers: [
+        '.extd-AttributeItem.installActivityAttribute',
+        '.ttFrameFieldItem',
+        '[class*="FieldItem"]',
+        '[class*="field-item"]',
+        '.mx-field',
+        '.form-group'
+      ],
+      labeledFieldLabel: [
+        '.extd-AttributeLbl',
+        'label',
+        '.lbl',
+        '[class*="FieldLabel"]',
+        '[class*="field-label"]',
+        'strong'
+      ],
+      labeledFieldValue: [
+        '.extd-AttributeValue',
+        '[class*="FieldValue"]',
+        '[class*="field-value"]',
+        '.value',
+        '.mx-text'
+      ],
+      sectionHeading: [
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'legend',
+        '.card-title',
+        '.panel-title',
+        '[class*="card-title"]',
+        '[class*="panel-title"]',
+        '[class*="CardTitle"]',
+        '[class*="PanelTitle"]',
+        'div',
+        'span'
+      ],
+      sectionContainers: [
+        '.card',
+        '.panel',
+        '.ttFrameCard',
+        '[class*="card"]',
+        '[class*="Card"]',
+        '[class*="panel"]',
+        '[class*="Panel"]',
+        'section',
+        'article'
+      ]
     },
     labels: {
       serialFieldLabels: ['Serial No.', 'Serial Number'],
@@ -53,7 +106,15 @@
       sideAValues: ['A'],
       sideZValues: ['Z'],
       portAValues: ['Port A', 'A Port'],
-      portBValues: ['Port B', 'B Port']
+      portBValues: ['Port B', 'B Port'],
+      customerContactCardTitles: ['Customer contact information'],
+      customerContactButtonTitles: ['Customer Contact Information'],
+      auditSiteLabels: ['Site', 'Site Name', 'IBX', 'IBX Name'],
+      auditRoomLabels: ['Room', 'Room Name', 'MMR', 'Meet-Me Room'],
+      auditSalesOrderLabels: ['Sales Order No.', 'Sales Order', 'Sales Order Number', 'Order Number'],
+      auditCustomerLabels: ['Customer', 'Customer Name', 'Company', 'Company Name', 'Account Name'],
+      auditRackLabels: ['Cabinet No.', 'Rack', 'Rack Name', 'Cabinet', 'Cabinet Name', 'Initial Rack'],
+      auditRackUnitsLabels: ['Rack Units', 'Rack Unit', 'RU', 'Initial Rack Units', 'Units']
     },
     behavior: {
       checkIntervalMs: 2000,
@@ -68,6 +129,7 @@
 
   const CONFIG = {
     apiUrl: 'http://fr2lxcops01:5100/api/label/print',
+    auditApiUrl: 'http://fr2lxcops01.corp.equinix.com:5500/api/integrations/audits',
     simulate: SIMULATE_MODE,
     primaryPrinterIp: '10.145.162.22',
     fallbackPrinterIp: '10.145.162.32',
@@ -77,12 +139,16 @@
 
   const BUTTON_ID = 'i7100-label-print-btn';
   const PATCH_PANEL_BUTTON_ID = 'i7100-ptp950-print-btn';
+  const AUDIT_BUTTON_ID = 'aethercad-audit-create-btn';
+  const AUDIT_BUTTON_ROW_ID = 'aethercad-audit-button-row';
+  const AUDIT_BUTTON_SLOT_ID = 'aethercad-audit-button-slot';
   const PATCH_PANEL_LABEL = {
     widthMm: 42,
     heightMm: 9,
     previewScale: 4
   };
   let connectBatchInFlight = false;
+  let auditRequestInFlight = false;
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -131,6 +197,18 @@
 
   function showMessage(msg) {
     window.alert(msg);
+  }
+
+  function cleanText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function safeParseJson(text) {
+    try {
+      return JSON.parse(text || '{}');
+    } catch {
+      return null;
+    }
   }
 
   function showConnectLabelPreview(data, onPrimaryPrint, onSecondaryPrint) {
@@ -614,6 +692,190 @@
     return '';
   }
 
+  function extractTextAfterLabel(text, labelText) {
+    const source = cleanText(text);
+    const label = cleanText(labelText);
+    if (!source || !label) {
+      return '';
+    }
+
+    const lowerSource = source.toLowerCase();
+    const lowerLabel = label.toLowerCase();
+    const index = lowerSource.indexOf(lowerLabel);
+    if (index < 0) {
+      return '';
+    }
+
+    const tail = source.slice(index + label.length).replace(/^[:\-\s]+/, '').trim();
+    if (!tail || normalizeText(tail) === lowerLabel) {
+      return '';
+    }
+    return tail;
+  }
+
+  function getValueFromFieldContainer(container, labelNode) {
+    const directValue = queryFirst(USER_CONFIG.selectors.labeledFieldValue, container);
+    if (directValue) {
+      const directText = cleanText(directValue.textContent);
+      if (directText) {
+        return directText;
+      }
+    }
+
+    const labelText = cleanText(labelNode?.textContent || '');
+    if (!labelText) {
+      return '';
+    }
+
+    const siblingCandidates = [];
+    let sibling = labelNode.nextElementSibling;
+    while (sibling) {
+      siblingCandidates.push(sibling);
+      sibling = sibling.nextElementSibling;
+    }
+
+    for (const candidate of siblingCandidates) {
+      const text = cleanText(candidate.textContent);
+      if (text && !equalsAny(text, [labelText])) {
+        return text;
+      }
+    }
+
+    const containerText = cleanText(container?.textContent || '');
+    return extractTextAfterLabel(containerText, labelText);
+  }
+
+  function getFieldValue(labelCandidates, root = document) {
+    const attributeValue = getAttributeValue(labelCandidates);
+    if (attributeValue) {
+      return attributeValue;
+    }
+
+    const containers = queryAll(USER_CONFIG.selectors.labeledFieldContainers, root);
+    for (const container of containers) {
+      const labels = queryAll(USER_CONFIG.selectors.labeledFieldLabel, container);
+      for (const labelNode of labels) {
+        if (!equalsAny(labelNode.textContent, labelCandidates)) {
+          continue;
+        }
+        const value = getValueFromFieldContainer(container, labelNode);
+        if (value) {
+          return value;
+        }
+      }
+    }
+
+    const headings = queryAll(USER_CONFIG.selectors.sectionHeading, root);
+    for (const labelNode of headings) {
+      if (!equalsAny(labelNode.textContent, labelCandidates)) {
+        continue;
+      }
+      const parent = labelNode.parentElement;
+      if (!parent) {
+        continue;
+      }
+      const value = getValueFromFieldContainer(parent, labelNode);
+      if (value) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  function parseFirstInteger(value) {
+    const match = cleanText(value).match(/-?\d+/);
+    if (!match) {
+      return null;
+    }
+    const parsed = Number.parseInt(match[0], 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function findHeadingByText(candidates, root = document) {
+    const headings = queryAll(USER_CONFIG.selectors.sectionHeading, root);
+    for (const heading of headings) {
+      if (equalsAny(heading.textContent, candidates)) {
+        return heading;
+      }
+    }
+    return null;
+  }
+
+  function findSectionContainerByHeading(candidates, root = document) {
+    const heading = findHeadingByText(candidates, root);
+    if (!heading) {
+      return null;
+    }
+
+    for (const selector of USER_CONFIG.selectors.sectionContainers) {
+      const container = heading.closest(selector);
+      if (container) {
+        return container;
+      }
+    }
+
+    let current = heading.parentElement;
+    while (current && current !== document.body) {
+      if ((current.children?.length || 0) > 1) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+
+    return heading.parentElement;
+  }
+
+  function findCustomerContactCard() {
+    return findSectionContainerByHeading(USER_CONFIG.labels.customerContactCardTitles);
+  }
+
+  function findCustomerContactButton() {
+    const buttons = Array.from(document.querySelectorAll('button, a[role="button"]'));
+    for (const button of buttons) {
+      const title = button.getAttribute('title') || button.getAttribute('aria-label') || button.textContent || '';
+      if (equalsAny(title, USER_CONFIG.labels.customerContactButtonTitles)) {
+        return button;
+      }
+    }
+    return null;
+  }
+
+  function getAuditHeaderText() {
+    const candidates = Array.from(document.querySelectorAll('.ttFrameTitleDetailsTxt, [data-tip]'));
+    for (const candidate of candidates) {
+      const raw = cleanText(candidate.getAttribute?.('data-tip') || candidate.textContent || '');
+      if (!raw) {
+        continue;
+      }
+      const parts = raw.split(':').map((part) => part.trim()).filter(Boolean);
+      if (parts.length >= 4) {
+        return raw;
+      }
+    }
+    return '';
+  }
+
+  function parseAuditHeaderText(value) {
+    const raw = cleanText(value);
+    if (!raw) {
+      return {
+        raw: '',
+        siteName: '',
+        roomName: '',
+        auditName: ''
+      };
+    }
+
+    const parts = raw.split(':').map((part) => part.trim());
+    return {
+      raw,
+      siteName: parts[0] || '',
+      roomName: parts[2] || '',
+      auditName: parts.slice(3).join(':').trim()
+    };
+  }
+
   function trimSystemName(value) {
     const parts = String(value || '').split(':').map((part) => part.trim()).filter(Boolean);
     return parts.slice(0, 3).join(':');
@@ -1068,6 +1330,17 @@
     return match;
   }
 
+  function isPhysicalAuditPage() {
+    const text = getPageTitleText();
+    if (!text) {
+      console.log('[i7100] isPhysicalAuditPage: title not found');
+      return false;
+    }
+    const match = includesAny(text, USER_CONFIG.activation.physicalAuditKeywords);
+    console.log('[i7100] isPhysicalAuditPage:', text, '->', match);
+    return match;
+  }
+
   function getPatchPanelSerialNumber() {
     const serial = queryFirst(USER_CONFIG.selectors.serialNumberValue);
     if (!serial) {
@@ -1099,10 +1372,139 @@
     return button;
   }
 
+  function createAuditButton() {
+    const button = document.createElement('button');
+    button.id = AUDIT_BUTTON_ID;
+    button.type = 'button';
+    button.className = 'btn mx-button undefined btn-default';
+    button.title = 'Create Audit in AetherCad';
+    button.textContent = 'Create Audit in AetherCad';
+    Object.assign(button.style, {
+      border: '1px solid #0f62fe',
+      borderRadius: '4px',
+      padding: '10px 12px',
+      backgroundColor: '#0f62fe',
+      color: '#fff',
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      fontWeight: '600',
+      minHeight: '42px'
+    });
+    return button;
+  }
+
   function setPatchPanelBusy(button, busy) {
     button.disabled = busy;
     button.style.opacity = busy ? '0.7' : '1';
     button.style.cursor = busy ? 'wait' : 'pointer';
+  }
+
+  function setAuditBusy(button, busy) {
+    button.disabled = busy;
+    button.style.opacity = busy ? '0.7' : '1';
+    button.style.cursor = busy ? 'wait' : 'pointer';
+  }
+
+  function buildAuditPayload() {
+    const headerData = parseAuditHeaderText(getAuditHeaderText());
+    const siteName =
+      cleanText(headerData.siteName) ||
+      getCurrentIbxCode() ||
+      getFieldValue(USER_CONFIG.labels.auditSiteLabels);
+    const roomName =
+      cleanText(headerData.roomName) ||
+      getFieldValue(USER_CONFIG.labels.auditRoomLabels);
+    const auditName =
+      cleanText(headerData.auditName) ||
+      getFieldValue(USER_CONFIG.labels.auditCustomerLabels, findCustomerContactCard() || document);
+    const salesOrder = getFieldValue(USER_CONFIG.labels.auditSalesOrderLabels);
+    const rackName = getFieldValue(USER_CONFIG.labels.auditRackLabels);
+    const initialRackUnits = 47;
+
+    const payload = {
+      siteName: cleanText(siteName),
+      roomName: cleanText(roomName),
+      auditName: cleanText(auditName),
+      salesOrder: cleanText(salesOrder)
+    };
+
+    if (cleanText(rackName)) {
+      payload.initialRackName = cleanText(rackName);
+    }
+    payload.initialRackUnits = initialRackUnits;
+
+    payload.notes = 'Erstellt per Tampermonkey';
+
+    const missing = [];
+    if (!payload.siteName) {
+      missing.push('siteName');
+    }
+    if (!payload.roomName) {
+      missing.push('roomName');
+    }
+    if (!payload.salesOrder) {
+      missing.push('salesOrder');
+    }
+    if (!payload.auditName) {
+      missing.push('auditName');
+    }
+
+    return {
+      payload,
+      missing
+    };
+  }
+
+  function createAudit(button) {
+    const audit = buildAuditPayload();
+    if (audit.missing.length > 0) {
+      showMessage(
+        `Audit-Daten unvollstaendig: ${audit.missing.join(', ')}. Wenn du magst, schick mir einen Jarvis-Element-Block der Seite, dann mappen wir die Felder gezielt.`
+      );
+      return;
+    }
+
+    if (auditRequestInFlight) {
+      return;
+    }
+
+    auditRequestInFlight = true;
+    setAuditBusy(button, true);
+
+    GM_xmlhttpRequest({
+      method: 'POST',
+      url: CONFIG.auditApiUrl,
+      headers: { 'Content-Type': 'application/json' },
+      data: JSON.stringify(audit.payload),
+      timeout: 15000,
+      onload(response) {
+        auditRequestInFlight = false;
+        setAuditBusy(button, false);
+
+        const body = safeParseJson(response.responseText);
+        if (response.status >= 200 && response.status < 300) {
+          if (body?.openUrl) {
+            window.open(body.openUrl, '_blank');
+            return;
+          }
+          showMessage(`Audit erstellt${body?.auditId ? `: ${body.auditId}` : ''}`);
+          return;
+        }
+
+        const err = body?.error || body?.message || `HTTP ${response.status}`;
+        showMessage(`Audit konnte nicht erstellt werden: ${err}`);
+      },
+      onerror() {
+        auditRequestInFlight = false;
+        setAuditBusy(button, false);
+        showMessage('Netzwerkfehler beim Audit-Request');
+      },
+      ontimeout() {
+        auditRequestInFlight = false;
+        setAuditBusy(button, false);
+        showMessage('Timeout beim Audit-Request');
+      }
+    });
   }
 
   function printPatchPanelLabel(button) {
@@ -1165,6 +1567,82 @@
     });
   }
 
+  function ensureAuditButtonPlacement(button, card) {
+    if (!button || !card || !card.parentElement) {
+      return false;
+    }
+
+    let row = document.getElementById(AUDIT_BUTTON_ROW_ID);
+    let slot = document.getElementById(AUDIT_BUTTON_SLOT_ID);
+
+    if (!row || !slot || !row.contains(card)) {
+      row = document.createElement('div');
+      row.id = AUDIT_BUTTON_ROW_ID;
+      Object.assign(row.style, {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        width: '100%'
+      });
+
+      slot = document.createElement('div');
+      slot.id = AUDIT_BUTTON_SLOT_ID;
+      Object.assign(slot.style, {
+        display: 'flex',
+        alignItems: 'flex-start',
+        flex: '0 0 auto',
+        paddingTop: '4px'
+      });
+
+      card.parentElement.insertBefore(row, card);
+      row.appendChild(slot);
+      row.appendChild(card);
+    }
+
+    if (button.parentElement !== slot) {
+      slot.replaceChildren(button);
+    }
+
+    return true;
+  }
+
+  function ensureAuditButtonNextToContactButton(button, contactButton) {
+    if (!button || !contactButton || !contactButton.parentElement) {
+      return false;
+    }
+
+    const parent = contactButton.parentElement;
+    if (button.parentElement !== parent) {
+      parent.insertBefore(button, contactButton);
+    } else if (button.nextSibling !== contactButton) {
+      parent.insertBefore(button, contactButton);
+    }
+
+    Object.assign(button.style, {
+      marginRight: '6px'
+    });
+    return true;
+  }
+
+  function removeAuditButton() {
+    const button = document.getElementById(AUDIT_BUTTON_ID);
+    if (button) {
+      button.remove();
+    }
+
+    const row = document.getElementById(AUDIT_BUTTON_ROW_ID);
+    const slot = document.getElementById(AUDIT_BUTTON_SLOT_ID);
+    if (!row || !slot || !row.parentElement) {
+      return;
+    }
+
+    const card = Array.from(row.children).find((child) => child !== slot);
+    if (card) {
+      row.parentElement.insertBefore(card, row);
+    }
+    row.remove();
+  }
+
   function ensurePatchPanelButton() {
     const existing = document.getElementById(PATCH_PANEL_BUTTON_ID);
     if (!isPatchPanelPage()) {
@@ -1191,6 +1669,44 @@
     const button = createPatchPanelButton();
     button.addEventListener('click', () => printPatchPanelLabel(button));
     copyButton.parentElement.insertBefore(button, copyButton.nextSibling);
+  }
+
+  function ensureAuditButton() {
+    const existing = document.getElementById(AUDIT_BUTTON_ID);
+    if (!isPhysicalAuditPage()) {
+      if (existing || document.getElementById(AUDIT_BUTTON_ROW_ID)) {
+        console.log('[i7100] Removing audit button');
+        removeAuditButton();
+      }
+      return;
+    }
+
+    const contactButton = findCustomerContactButton();
+    const card = findCustomerContactCard();
+
+    if (existing) {
+      if (contactButton && ensureAuditButtonNextToContactButton(existing, contactButton)) {
+        return;
+      }
+      if (card) {
+        ensureAuditButtonPlacement(existing, card);
+        return;
+      }
+      console.log('[i7100] Customer contact information anchor not found for audit button');
+      return;
+    }
+
+    console.log('[i7100] Adding audit button');
+    const button = createAuditButton();
+    button.addEventListener('click', () => createAudit(button));
+    if (contactButton && ensureAuditButtonNextToContactButton(button, contactButton)) {
+      return;
+    }
+    if (card) {
+      ensureAuditButtonPlacement(button, card);
+      return;
+    }
+    console.log('[i7100] Customer contact information anchor not found for audit button');
   }
 
   function findSerialCopyButton() {
@@ -1238,6 +1754,7 @@
   function checkButtons() {
     ensureConnectButton();
     ensurePatchPanelButton();
+    ensureAuditButton();
   }
 
   function start() {
